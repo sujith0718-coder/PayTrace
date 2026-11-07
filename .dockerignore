@@ -1,0 +1,25 @@
+# Build outputs
+**/target/
+**/*.class
+**/*.jar
+**/*.war
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Source control & logs
+.git/
+.gitignore
+*.log
+
+# IDE settings
+.idea/
+*.iml
+.vscode/
+
+# Secrets and local configurations
+.env
+.env.*
+!.env.example
+

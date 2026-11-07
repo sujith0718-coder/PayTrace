@@ -1,0 +1,25 @@
+# Build outputs
+target/
+*.class
+*.jar
+*.war
+*.original
+
+# Source control & logs
+.git/
+.gitignore
+*.log
+
+# IDE settings
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# Secrets and local configurations
+.env
+.env.*
+!.env.example
+
