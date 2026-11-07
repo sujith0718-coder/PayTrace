@@ -147,6 +147,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
             <Input
               label="Analyst Email Address"
               type="email"
+              autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="analyst@paytrace.dev"
@@ -157,6 +158,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
             <Input
               label="Password"
               type="password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••••••"
