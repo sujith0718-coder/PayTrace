@@ -12,20 +12,21 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 /**
  * Production Security & CORS Configuration for Render Deployment.
- * - Stateless session architecture (JWT ready)
- * - Configurable CORS policy supporting local Vite and Render frontend domains
+ * - Stateless session architecture
+ * - Whitelists localhost, Vercel frontend (https://frontend-woad-one-82.vercel.app), and Render domains
  * - Public access to health check, documentation, and authentication endpoints
  */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
-    @Value("${paytrace.cors.allowed-origins:http://localhost:5173,http://localhost:3000}")
+    @Value("${paytrace.cors.allowed-origins:http://localhost:5173,http://localhost:3000,https://frontend-woad-one-82.vercel.app,https://*.vercel.app,https://*.onrender.com}")
     private String allowedOrigins;
 
     @Bean
@@ -37,6 +38,10 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/", "/api/", "/api/health", "/api/health/**").permitAll()
                 .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/imports/**").permitAll()
+                .requestMatchers("/api/reconciliation-runs/**").permitAll()
+                .requestMatchers("/api/investigations/**").permitAll()
+                .requestMatchers("/api/audit-logs/**").permitAll()
                 .requestMatchers("/error").permitAll()
                 .anyRequest().permitAll()
             );
@@ -48,17 +53,27 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
+        List<String> patterns = new ArrayList<>(List.of(
+            "http://localhost:*",
+            "http://127.0.0.1:*",
+            "https://frontend-woad-one-82.vercel.app",
+            "https://*.vercel.app",
+            "https://*.onrender.com"
+        ));
+
         if (allowedOrigins != null && !allowedOrigins.isBlank()) {
-            List<String> origins = Arrays.stream(allowedOrigins.split(","))
+            Arrays.stream(allowedOrigins.split(","))
                     .map(String::trim)
                     .filter(s -> !s.isEmpty())
-                    .toList();
-            config.setAllowedOriginPatterns(origins);
-        } else {
-            config.setAllowedOriginPatterns(List.of("*"));
+                    .forEach(o -> {
+                        if (!patterns.contains(o)) {
+                            patterns.add(o);
+                        }
+                    });
         }
 
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedOriginPatterns(patterns);
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
         config.setAllowedHeaders(List.of(
             "Authorization", 
             "Content-Type", 
@@ -77,4 +92,3 @@ public class SecurityConfig {
         return source;
     }
 }
-
