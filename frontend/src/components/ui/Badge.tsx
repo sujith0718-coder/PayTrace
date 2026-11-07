@@ -41,6 +41,8 @@ export const Badge: React.FC<BadgeProps> = ({
         break;
       case 'MISSING_PAYMENT':
       case 'MISSING_SETTLEMENT':
+      case 'MISSING_ORDER':
+      case 'UNMATCHED_SETTLEMENT':
       case 'FAILED':
         resolvedVariant = 'missing';
         break;
@@ -77,7 +79,7 @@ export const Badge: React.FC<BadgeProps> = ({
     md: 'text-xs px-2.5 py-1 font-semibold tracking-wide',
   };
 
-  const displayLabel = children || (status ? status.replace(/_/g, ' ') : '');
+  const displayLabel = children || (status ? (typeof status === 'string' ? status.replace(/_/g, ' ') : String(status)) : '');
 
   return (
     <span

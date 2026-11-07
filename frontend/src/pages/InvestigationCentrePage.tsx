@@ -138,7 +138,8 @@ export const InvestigationCentrePage: React.FC<InvestigationCentrePageProps> = (
               filteredCases.map((c) => {
                 const isSelected = c.id === selectedCase?.id;
                 const caseNum = c.caseNumber || c.id || 'INV-CASE';
-                const discType = (c.discrepancyType || c.discrepancy?.type || 'AMOUNT_MISMATCH').replace(/_/g, ' ');
+                const rawDiscType = c.discrepancyType || c.discrepancy?.type || 'AMOUNT_MISMATCH';
+                const discType = typeof rawDiscType === 'string' ? rawDiscType.replace(/_/g, ' ') : String(rawDiscType || 'AMOUNT_MISMATCH');
                 const explanation = c.discrepancy?.explanation || 'Discrepancy detected and pending analyst review.';
                 const variance = c.discrepancy?.variance || (c as any).varianceAmount || '0.00';
                 const analyst = c.assignedAnalyst || (c as any).assignedTo || 'Sujith E';
@@ -203,7 +204,7 @@ export const InvestigationCentrePage: React.FC<InvestigationCentrePageProps> = (
                     <Badge status={selectedCase.status || 'OPEN'} />
                   </div>
                   <p className="text-xs text-slate-500 font-mono mt-0.5">
-                    Order Ref: {selectedCase.discrepancy?.orderId || (selectedCase as any).orderId || 'N/A'} • Registered: {(selectedCase.createdAt || '').slice(0, 10) || new Date().toISOString().slice(0, 10)}
+                    Order Ref: {selectedCase.discrepancy?.orderId || (selectedCase as any).orderId || 'N/A'} • Registered: {String(selectedCase.createdAt || '').slice(0, 10) || new Date().toISOString().slice(0, 10)}
                   </p>
                 </div>
 
@@ -286,8 +287,8 @@ export const InvestigationCentrePage: React.FC<InvestigationCentrePageProps> = (
                   {(selectedCase.notes || []).map((note) => (
                     <div key={note.id} className="p-3 rounded-lg bg-slate-50 border border-slate-200/80 text-xs space-y-1">
                       <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
-                        <span className="font-bold text-navy-900">{note.author || 'Analyst'} ({note.authorRole || 'Compliance'})</span>
-                        <span>{(note.timestamp || '').slice(0, 16).replace('T', ' ')}</span>
+                        <span className="font-bold text-navy-900">{note?.author || 'Analyst'} ({note?.authorRole || 'Compliance'})</span>
+                        <span>{String(note?.timestamp || '').slice(0, 16).replace('T', ' ')}</span>
                       </div>
                       <p className="text-slate-700 font-sans">{note.text}</p>
                     </div>

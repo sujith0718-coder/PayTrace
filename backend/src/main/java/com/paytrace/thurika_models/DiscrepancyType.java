@@ -14,8 +14,14 @@ public enum DiscrepancyType {
     // Order exists in OMS, but missing from Payment Gateway
     MISSING_PAYMENT,
 
+    // Payment captured on Gateway, but missing corresponding order in OMS
+    MISSING_ORDER,
+
     // Payment captured on Gateway, but missing from Bank Settlement
     MISSING_SETTLEMENT,
+
+    // Bank Settlement received, but missing matching Gateway payment
+    UNMATCHED_SETTLEMENT,
 
     // Multiple payments referencing the same order
     DUPLICATE_TRANSACTION,
@@ -23,4 +29,3 @@ public enum DiscrepancyType {
     // Row has corrupted numbers or missing mandatory columns
     INVALID_FORMAT
 }
-

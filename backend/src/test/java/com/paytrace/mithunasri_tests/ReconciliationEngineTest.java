@@ -93,5 +93,87 @@ public class ReconciliationEngineTest {
         assertEquals(InvestigationStatus.RESOLVED, inv.getStatus());
         assertEquals("TIMING_DIFFERENCE", inv.getResolutionCategory());
     }
+
+    @Test
+    @DisplayName("Test 5: Real-world CSV Ingestion and 3-way Matching for all 8 test cases")
+    void testSampleCsvReconciliation() throws Exception {
+        com.paytrace.tharun_ingestion.CsvImportService importService = new com.paytrace.tharun_ingestion.CsvImportService();
+
+        java.io.File omsFile = new java.io.File("C:/Users/sujit/Downloads/PayTrace_sample_test_CSVs/oms_orders.csv");
+        java.io.File gwFile = new java.io.File("C:/Users/sujit/Downloads/PayTrace_sample_test_CSVs/gateway_transactions.csv");
+        java.io.File bankFile = new java.io.File("C:/Users/sujit/Downloads/PayTrace_sample_test_CSVs/bank_settlements.csv");
+
+        assertTrue(omsFile.exists(), "OMS CSV should exist");
+        assertTrue(gwFile.exists(), "Gateway CSV should exist");
+        assertTrue(bankFile.exists(), "Bank CSV should exist");
+
+        var ordersRes = importService.parseOrders(new java.io.FileInputStream(omsFile));
+        var paymentsRes = importService.parsePayments(new java.io.FileInputStream(gwFile));
+        var settlementsRes = importService.parseSettlements(new java.io.FileInputStream(bankFile));
+
+        assertEquals(6, ordersRes.getValidRecords().size(), "Should parse 6 orders (ORD-1001 to ORD-1006)");
+        assertEquals(6, paymentsRes.getValidRecords().size(), "Should parse 6 payments (GW-5001 to GW-5005, GW-5007)");
+        assertEquals(6, settlementsRes.getValidRecords().size(), "Should parse 6 settlements (BANK-9001 to BANK-9004, BANK-9007, BANK-9008)");
+
+        ReconciliationResult result = engine.reconcile(
+                ordersRes.getValidRecords(),
+                paymentsRes.getValidRecords(),
+                settlementsRes.getValidRecords()
+        );
+
+        // Expected cases:
+        // ORD-1001: Matched (1200)
+        // ORD-1002: Matched (850)
+        // ORD-1003: AMOUNT_MISMATCH (OMS 1500, GW 1490)
+        // ORD-1004: Matched (650)
+        // ORD-1005: MISSING_SETTLEMENT (999)
+        // ORD-1006: MISSING_PAYMENT (2200)
+        // ORD-1007: MISSING_ORDER (GW 450)
+        // BANK-9008: UNMATCHED_SETTLEMENT (Bank 300)
+
+        assertEquals(3, result.getMatchedRecords(), "Should have exactly 3 matched records (ORD-1001, ORD-1002, ORD-1004)");
+        assertEquals(5, result.getDiscrepanciesCount(), "Should have exactly 5 discrepancies");
+
+        var discMap = new java.util.HashMap<String, Discrepancy>();
+        for (Discrepancy d : result.getDiscrepancies()) {
+            discMap.put(d.getOrderId(), d);
+        }
+
+        // 1. ORD-1003
+        assertTrue(discMap.containsKey("ORD-1003"));
+        assertEquals(DiscrepancyType.AMOUNT_MISMATCH, discMap.get("ORD-1003").getType());
+        assertEquals(0, new BigDecimal("10.00").compareTo(discMap.get("ORD-1003").getVariance().abs()));
+        assertNotNull(discMap.get("ORD-1003").getOrderRecord());
+        assertNotNull(discMap.get("ORD-1003").getPaymentRecord());
+
+        // 2. ORD-1005
+        assertTrue(discMap.containsKey("ORD-1005"));
+        assertEquals(DiscrepancyType.MISSING_SETTLEMENT, discMap.get("ORD-1005").getType());
+        assertEquals(0, new BigDecimal("999.00").compareTo(discMap.get("ORD-1005").getVariance().abs()));
+        assertNotNull(discMap.get("ORD-1005").getOrderRecord());
+        assertNotNull(discMap.get("ORD-1005").getPaymentRecord());
+
+        // 3. ORD-1006
+        assertTrue(discMap.containsKey("ORD-1006"));
+        assertEquals(DiscrepancyType.MISSING_PAYMENT, discMap.get("ORD-1006").getType());
+        assertEquals(0, new BigDecimal("2200.00").compareTo(discMap.get("ORD-1006").getVariance().abs()));
+        assertNotNull(discMap.get("ORD-1006").getOrderRecord());
+        assertNull(discMap.get("ORD-1006").getPaymentRecord());
+
+        // 4. ORD-1007
+        assertTrue(discMap.containsKey("ORD-1007"));
+        assertEquals(DiscrepancyType.MISSING_ORDER, discMap.get("ORD-1007").getType());
+        assertEquals(0, new BigDecimal("450.00").compareTo(discMap.get("ORD-1007").getVariance().abs()));
+        assertNull(discMap.get("ORD-1007").getOrderRecord());
+        assertNotNull(discMap.get("ORD-1007").getPaymentRecord());
+
+        // 5. BANK-9008
+        assertTrue(discMap.containsKey("BANK-9008"));
+        assertEquals(DiscrepancyType.UNMATCHED_SETTLEMENT, discMap.get("BANK-9008").getType());
+        assertEquals(0, new BigDecimal("300.00").compareTo(discMap.get("BANK-9008").getVariance().abs()));
+        assertNull(discMap.get("BANK-9008").getOrderRecord());
+        assertNull(discMap.get("BANK-9008").getPaymentRecord());
+        assertNotNull(discMap.get("BANK-9008").getSettlementRecord());
+    }
 }
 

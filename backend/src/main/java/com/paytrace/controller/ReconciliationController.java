@@ -205,13 +205,13 @@ public class ReconciliationController {
             warnings.add("Upload stream processing error: " + e.getMessage());
         }
 
-        if (orders.isEmpty()) {
+        if (ordersFile == null && orders.isEmpty()) {
             orders = createDefaultOrders();
         }
-        if (payments.isEmpty()) {
+        if (paymentsFile == null && payments.isEmpty()) {
             payments = createDefaultPayments();
         }
-        if (settlements.isEmpty()) {
+        if (settlementsFile == null && settlements.isEmpty()) {
             settlements = createDefaultSettlements();
         }
 
@@ -344,7 +344,7 @@ public class ReconciliationController {
         int invIndex = 101;
 
         for (Discrepancy d : result.getDiscrepancies()) {
-            String severity = d.getVariance().compareTo(new BigDecimal("100")) > 0 ? "HIGH" : "MEDIUM";
+            String severity = d.getVariance().abs().compareTo(new BigDecimal("100")) > 0 ? "HIGH" : "MEDIUM";
             String caseNum = "INV-2026-" + (invIndex++);
 
             Map<String, Object> map = new HashMap<>();
@@ -356,8 +356,47 @@ public class ReconciliationController {
             map.put("explanation", d.getExplanation());
             map.put("expectedAmount", d.getExpectedAmount().toPlainString());
             map.put("actualAmount", d.getActualAmount().toPlainString());
-            map.put("variance", d.getVariance().toPlainString());
+            map.put("variance", d.getVariance().abs().toPlainString());
             map.put("createdAt", Instant.now().toString());
+
+            if (d.getOrderRecord() != null) {
+                OrderRecord o = d.getOrderRecord();
+                Map<String, Object> ordMap = new HashMap<>();
+                ordMap.put("orderId", o.getRecordId());
+                ordMap.put("customerId", o.getCustomerId());
+                ordMap.put("orderDate", o.getTimestamp() != null ? o.getTimestamp().toString() : "");
+                ordMap.put("amount", o.getAmount().toPlainString());
+                ordMap.put("currency", o.getCurrency());
+                ordMap.put("status", o.getOrderStatus());
+                map.put("orderRecord", ordMap);
+            }
+
+            if (d.getPaymentRecord() != null) {
+                PaymentTransaction p = d.getPaymentRecord();
+                Map<String, Object> payMap = new HashMap<>();
+                payMap.put("paymentId", p.getRecordId());
+                payMap.put("orderId", p.getOrderId());
+                payMap.put("paymentDate", p.getTimestamp() != null ? p.getTimestamp().toString() : "");
+                payMap.put("amount", p.getAmount().toPlainString());
+                payMap.put("fee", p.getFeeAmount() != null ? p.getFeeAmount().toPlainString() : "0.00");
+                payMap.put("gateway", p.getGatewayName());
+                payMap.put("status", p.getStatus());
+                map.put("paymentRecord", payMap);
+            }
+
+            if (d.getSettlementRecord() != null) {
+                SettlementRecord s = d.getSettlementRecord();
+                Map<String, Object> stlMap = new HashMap<>();
+                stlMap.put("settlementId", s.getRecordId());
+                stlMap.put("paymentId", s.getPaymentId());
+                stlMap.put("settlementDate", s.getTimestamp() != null ? s.getTimestamp().toString() : "");
+                stlMap.put("grossAmount", s.getGrossAmount() != null ? s.getGrossAmount().toPlainString() : "0.00");
+                stlMap.put("netAmount", s.getNetAmount() != null ? s.getNetAmount().toPlainString() : "0.00");
+                stlMap.put("fee", s.getBankFee() != null ? s.getBankFee().toPlainString() : "0.00");
+                stlMap.put("bankReference", s.getBankReference());
+                map.put("settlementRecord", stlMap);
+            }
+
             discrepancyMaps.add(map);
 
             Map<String, Object> inv = new HashMap<>();
@@ -369,7 +408,7 @@ public class ReconciliationController {
             inv.put("severity", severity);
             inv.put("status", "OPEN");
             inv.put("priority", severity);
-            inv.put("varianceAmount", d.getVariance().toPlainString());
+            inv.put("varianceAmount", d.getVariance().abs().toPlainString());
             inv.put("assignedAnalyst", "Sujith E");
             inv.put("assignedAnalystEmail", "sujith@paytrace.fin");
             inv.put("assignedTo", "Sujith E");
@@ -449,6 +488,13 @@ public class ReconciliationController {
         if (runsCache.containsKey(runId)) {
             return ResponseEntity.ok(runsCache.get(runId));
         }
+        if (dataSource != null) {
+            Map<String, Object> dbRun = loadRunFromDb(runId);
+            if (dbRun != null) {
+                runsCache.put(runId, dbRun);
+                return ResponseEntity.ok(dbRun);
+            }
+        }
         if (!runsCache.isEmpty()) {
             return ResponseEntity.ok(runsCache.values().iterator().next());
         }
@@ -459,6 +505,13 @@ public class ReconciliationController {
     public ResponseEntity<List<Map<String, Object>>> getDiscrepancies(@PathVariable String runId) {
         if (runDiscrepanciesCache.containsKey(runId)) {
             return ResponseEntity.ok(runDiscrepanciesCache.get(runId));
+        }
+        if (dataSource != null) {
+            List<Map<String, Object>> dbList = loadDiscrepanciesFromDb(runId);
+            if (!dbList.isEmpty()) {
+                runDiscrepanciesCache.put(runId, dbList);
+                return ResponseEntity.ok(dbList);
+            }
         }
         if (!runDiscrepanciesCache.isEmpty()) {
             return ResponseEntity.ok(runDiscrepanciesCache.values().iterator().next());
@@ -750,6 +803,68 @@ public class ReconciliationController {
             }
         } catch (Exception e) {
             System.err.println("Error reading settlements for batch " + batchId + ": " + e.getMessage());
+        }
+        return list;
+    }
+
+    private Map<String, Object> loadRunFromDb(String runId) {
+        if (dataSource == null) return null;
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT * FROM reconciliation_runs WHERE run_id = ?")) {
+            ps.setString(1, runId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Map<String, Object> r = new HashMap<>();
+                    r.put("runId", rs.getString("run_id"));
+                    r.put("batchId", rs.getString("batch_id"));
+                    r.put("status", rs.getString("status"));
+                    r.put("startedAt", rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toInstant().toString() : Instant.now().toString());
+                    r.put("completedAt", rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toInstant().toString() : Instant.now().toString());
+
+                    Map<String, Object> metrics = new HashMap<>();
+                    metrics.put("totalRecords", rs.getInt("total_records"));
+                    metrics.put("matchedRecords", rs.getInt("matched_records"));
+                    metrics.put("discrepanciesCount", rs.getInt("discrepancies_count"));
+                    metrics.put("reconciliationPercentage", rs.getDouble("match_percentage"));
+                    metrics.put("totalOrderValue", rs.getBigDecimal("total_order_value") != null ? rs.getBigDecimal("total_order_value").toPlainString() : "0.00");
+                    metrics.put("totalSettledValue", rs.getBigDecimal("total_settled_value") != null ? rs.getBigDecimal("total_settled_value").toPlainString() : "0.00");
+                    r.put("metrics", metrics);
+
+                    List<Map<String, Object>> discrepancies = loadDiscrepanciesFromDb(runId);
+                    r.put("discrepancies", discrepancies);
+                    return r;
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error reading run " + runId + ": " + e.getMessage());
+        }
+        return null;
+    }
+
+    private List<Map<String, Object>> loadDiscrepanciesFromDb(String runId) {
+        if (dataSource == null) return Collections.emptyList();
+        List<Map<String, Object>> list = new ArrayList<>();
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT * FROM discrepancies WHERE run_id = ? ORDER BY id ASC")) {
+            ps.setString(1, runId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> d = new HashMap<>();
+                    d.put("id", rs.getString("id"));
+                    d.put("runId", rs.getString("run_id"));
+                    d.put("type", rs.getString("type"));
+                    d.put("severity", rs.getString("severity"));
+                    d.put("orderId", rs.getString("order_id"));
+                    d.put("explanation", rs.getString("explanation"));
+                    d.put("expectedAmount", rs.getBigDecimal("expected_amount") != null ? rs.getBigDecimal("expected_amount").toPlainString() : "0.00");
+                    d.put("actualAmount", rs.getBigDecimal("actual_amount") != null ? rs.getBigDecimal("actual_amount").toPlainString() : "0.00");
+                    d.put("variance", rs.getBigDecimal("variance") != null ? rs.getBigDecimal("variance").toPlainString() : "0.00");
+                    d.put("createdAt", rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toInstant().toString() : Instant.now().toString());
+                    list.add(d);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error reading discrepancies for run " + runId + ": " + e.getMessage());
         }
         return list;
     }

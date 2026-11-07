@@ -30,7 +30,9 @@ export const ReconciliationResultsPage: React.FC<ReconciliationResultsPageProps>
     ALL: discrepancies.length,
     AMOUNT_MISMATCH: discrepancies.filter(d => d.type === 'AMOUNT_MISMATCH').length,
     MISSING_PAYMENT: discrepancies.filter(d => d.type === 'MISSING_PAYMENT').length,
+    MISSING_ORDER: discrepancies.filter(d => d.type === 'MISSING_ORDER').length,
     MISSING_SETTLEMENT: discrepancies.filter(d => d.type === 'MISSING_SETTLEMENT').length,
+    UNMATCHED_SETTLEMENT: discrepancies.filter(d => d.type === 'UNMATCHED_SETTLEMENT').length,
     DUPLICATE_TRANSACTION: discrepancies.filter(d => d.type === 'DUPLICATE_TRANSACTION').length,
   };
 
@@ -121,6 +123,20 @@ export const ReconciliationResultsPage: React.FC<ReconciliationResultsPageProps>
         </button>
 
         <button
+          onClick={() => setSelectedTab('MISSING_ORDER')}
+          className={`px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors flex items-center gap-2 shrink-0 ${
+            selectedTab === 'MISSING_ORDER'
+              ? 'bg-purple-600 text-white shadow-sm'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <span>Missing Orders</span>
+          <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-purple-100 text-purple-800">
+            {filterCounts.MISSING_ORDER}
+          </span>
+        </button>
+
+        <button
           onClick={() => setSelectedTab('MISSING_SETTLEMENT')}
           className={`px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors flex items-center gap-2 shrink-0 ${
             selectedTab === 'MISSING_SETTLEMENT'
@@ -131,6 +147,20 @@ export const ReconciliationResultsPage: React.FC<ReconciliationResultsPageProps>
           <span>Missing Settlements</span>
           <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-lavender-100 text-lavender-800">
             {filterCounts.MISSING_SETTLEMENT}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setSelectedTab('UNMATCHED_SETTLEMENT')}
+          className={`px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors flex items-center gap-2 shrink-0 ${
+            selectedTab === 'UNMATCHED_SETTLEMENT'
+              ? 'bg-rose-600 text-white shadow-sm'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <span>Unmatched Settlements</span>
+          <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-100 text-rose-800">
+            {filterCounts.UNMATCHED_SETTLEMENT}
           </span>
         </button>
 
@@ -206,8 +236,13 @@ export const ReconciliationResultsPage: React.FC<ReconciliationResultsPageProps>
                         <p className="text-[11px] text-slate-500 font-sans">Amount: ${item.orderRecord.amount}</p>
                         <p className="text-[10px] text-slate-400 font-sans">{item.orderRecord.orderDate}</p>
                       </div>
+                    ) : item.type !== 'MISSING_ORDER' && item.type !== 'UNMATCHED_SETTLEMENT' && item.orderId ? (
+                      <div>
+                        <p className="font-bold text-navy-950">{item.orderId}</p>
+                        <p className="text-[11px] text-slate-500 font-sans">Expected: ${item.expectedAmount}</p>
+                      </div>
                     ) : (
-                      <span className="text-slate-400 italic font-sans text-xs">No Order Found</span>
+                      <span className="text-slate-400 italic font-sans text-xs">No Order in OMS</span>
                     )}
                   </td>
 
