@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PayTrace — Team Beginner Guides</title>
+<style>
+  @page {
+    size: A4;
+    margin: 18mm 16mm 18mm 16mm;
+    @bottom-right {
+      content: counter(page);
+    }
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    line-height: 1.5;
+    font-size: 11pt;
+    background: #ffffff;
+  }
+  .page-break {
+    page-break-before: always;
+  }
+  h1 {
+    color: #0f172a;
+    font-size: 20pt;
+    border-bottom: 2px solid #d6b66c;
+    padding-bottom: 6px;
+    margin-top: 0;
+  }
+  h2 {
+    color: #111827;
+    font-size: 14pt;
+    margin-top: 18pt;
+    margin-bottom: 6pt;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 4px;
+  }
+  h3 {
+    color: #334155;
+    font-size: 12pt;
+    margin-top: 12pt;
+    margin-bottom: 4pt;
+  }
+  .member-badge {
+    display: inline-block;
+    background: #11182d;
+    color: #d6b66c;
+    font-weight: 700;
+    font-size: 10pt;
+    padding: 4px 10px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .meta-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #d6b66c;
+    padding: 10px 14px;
+    border-radius: 4px;
+    margin-bottom: 14pt;
+    font-size: 10pt;
+  }
+  .meta-box p {
+    margin: 3px 0;
+  }
+  pre {
+    background: #0f172a;
+    color: #f1f5f9;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-family: "JetBrains Mono", Consolas, "Courier New", monospace;
+    font-size: 8.5pt;
+    line-height: 1.35;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 8px 0;
+  }
+  code {
+    font-family: Consolas, "Courier New", monospace;
+    background: #f1f5f9;
+    color: #0f172a;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 9pt;
+  }
+  pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+  }
+  .viva-card {
+    background: #fefce8;
+    border: 1px solid #fef08a;
+    border-left: 4px solid #eab308;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin: 8px 0;
+    font-size: 9.5pt;
+  }
+  .viva-q {
+    font-weight: 700;
+    color: #854d0e;
+  }
+  .viva-a {
+    color: #713f12;
+    margin-top: 3px;
+  }
+  ul, ol {
+    margin-top: 4px;
+    margin-bottom: 8px;
+    padding-left: 20px;
+  }
+  li {
+    margin-bottom: 3px;
+  }
+  .header-cover {
+    text-align: center;
+    padding: 40px 0 30px 0;
+    border-bottom: 3px solid #11182d;
+    margin-bottom: 25px;
+  }
+  .header-cover h1 {
+    font-size: 26pt;
+    border: none;
+    margin-bottom: 6px;
+    color: #11182d;
+  }
+  .header-cover p {
+    font-size: 12pt;
+    color: #64748b;
+    margin: 4px 0;
+  }
+  .team-summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 9.5pt;
+  }
+  .team-summary-table th, .team-summary-table td {
+    border: 1px solid #cbd5e1;
+    padding: 8px 10px;
+    text-align: left;
+  }
+  .team-summary-table th {
+    background: #11182d;
+    color: #f8fafc;
+    font-weight: 600;
+  }
+  .team-summary-table tr:nth-child(even) {
+    background: #f8fafc;
+  }
+</style>
+</head>
+<body>
+
+<div class="header-cover">
+  <div style="font-size: 28pt; color: #d6b66c; margin-bottom: 6px;">⚖️</div>
+  <h1>PAYTRACE</h1>
+  <p><strong>Payment Discrepancy Detection & Reconciliation System</strong></p>
+  <p style="font-size: 10pt; color: #94a3b8; font-family: monospace;">FINTECH OPERATIONS • JAVA OOP ACADEMIC BLUEPRINT</p>
+  <p style="margin-top: 15px; font-size: 11pt; color: #334155;">Comprehensive Beginner Engineering Guide for Each Team Member</p>
+</div>
+
+<h2>Team Division & Ownership Matrix</h2>
+<table class="team-summary-table">
+  <thead>
+    <tr>
+      <th>Member</th>
+      <th>Role</th>
+      <th>Assigned Git Branch</th>
+      <th>Core Deliverables</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Thurika G</strong></td>
+      <td>Domain Architect</td>
+      <td><code>feature/java-data-models</code></td>
+      <td>OOP class hierarchy, encapsulation, <code>BaseFinancialRecord</code>, <code>OrderRecord</code>, <code>PaymentTransaction</code>, <code>SettlementRecord</code>, <code>BigDecimal</code> precision</td>
+    </tr>
+    <tr>
+      <td><strong>Sujith E</strong></td>
+      <td>Core Systems Engineer</td>
+      <td><code>feature/reconciliation-engine</code></td>
+      <td><code>ReconciliationEngine</code>, $O(N)$ HashMap matching, tolerance checks ($\pm\$0.05$), duplicate detection, variance calculations</td>
+    </tr>
+    <tr>
+      <td><strong>Tharun J</strong></td>
+      <td>Ingestion Specialist</td>
+      <td><code>feature/csv-import</code></td>
+      <td><code>CsvImportService</code>, OpenCSV line tokenization, schema headers, non-blocking error handling, <code>CsvValidationResult</code></td>
+    </tr>
+    <tr>
+      <td><strong>Mithunasri J</strong></td>
+      <td>QA & Workflow Engineer</td>
+      <td><code>feature/investigation-testing</code></td>
+      <td><code>InvestigationCase</code> state machine (OPEN &rarr; UNDER_REVIEW &rarr; RESOLVED), mandatory audit notes, complete JUnit 5 test suite</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="meta-box" style="margin-top: 25px;">
+  <p><strong>Repository URL:</strong> <code>https://github.com/sujith0718-coder/PayTrace.git</code></p>
+  <p><strong>Tech Stack:</strong> Java 21 LTS • Spring Boot 3.4.1 • Maven • JUnit 5 • OpenCSV • React 18 + TypeScript</p>
+  <p><strong>Design System:</strong> Midnight Luxe (Deep Navy <code>#11182D</code>, Champagne Gold <code>#D6B66C</code>, Emerald <code>#26966B</code>)</p>
+</div>
+
+<!-- ==================== MEMBER 1: THURIKA G ==================== -->
+<div class="page-break"></div>
+
+<div class="member-badge">Member 1 Guide</div>
+<h1>Thurika G — Domain Architect</h1>
+<div class="meta-box">
+  <p><strong>Primary Role:</strong> Java OOP & Data Models</p>
+  <p><strong>Git Branch:</strong> <code>feature/java-data-models</code></p>
+  <p><strong>Target Package:</strong> <code>com.paytrace.model</code> (in <code>backend/src/main/java/com/paytrace/model/</code>)</p>
+</div>
+
+<h3>1. Your Objective</h3>
+<p>You build the <strong>core domain entities</strong> of PayTrace. Every other teammate (Sujith, Tharun, and Mithunasri) will import and use your classes to store, match, and validate financial records. You will demonstrate key OOP principles: <strong>Abstraction, Inheritance, Encapsulation, and Polymorphism</strong>.</p>
+
+<h3>2. Git & Workspace Setup</h3>
+<pre>git clone https://github.com/sujith0718-coder/PayTrace.git
+cd PayTrace
+git checkout feature/java-data-models</pre>
+<p>Open the <code>backend/</code> folder in IntelliJ IDEA, Eclipse, or VS Code as a Maven project.</p>
+
+<h3>3. Step-by-Step Code Implementation</h3>
+
+<p><strong>Step 1: <code>BaseFinancialRecord.java</code> (Abstract Parent Class)</strong></p>
+<pre>package com.paytrace.model;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+public abstract class BaseFinancialRecord {
+    protected String recordId;
+    protected LocalDateTime timestamp;
+    protected BigDecimal amount;
+    protected String currency;
+
+    public BaseFinancialRecord(String recordId, LocalDateTime timestamp, BigDecimal amount, String currency) {
+        if (amount != null && amount.compareTo(BigDecimal.ZERO) &lt; 0) {
+            throw new IllegalArgumentException("Amount cannot be negative: " + amount);
+        }
+        this.recordId = recordId;
+        this.timestamp = timestamp != null ? timestamp : LocalDateTime.now();
+        this.amount = amount != null ? amount : BigDecimal.ZERO;
+        this.currency = currency != null ? currency : "USD";
+    }
+
+    public String getRecordId() { return recordId; }
+    public void setRecordId(String recordId) { this.recordId = recordId; }
+    public LocalDateTime getTimestamp() { return timestamp; }
+    public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
+    public BigDecimal getAmount() { return amount; }
+    public void setAmount(BigDecimal amount) {
+        if (amount != null && amount.compareTo(BigDecimal.ZERO) &lt; 0) {
+            throw new IllegalArgumentException("Amount cannot be negative");
+        }
+        this.amount = amount;
+    }
+    public String getCurrency() { return currency; }
+    public void setCurrency(String currency) { this.currency = currency; }
+
+    public abstract String getSourceType();
+}</pre>
+
+<p><strong>Step 2: <code>OrderRecord.java</code> (OMS Order Child Class)</strong></p>
+<pre>package com.paytrace.model;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+public class OrderRecord extends BaseFinancialRecord {
+    private String customerId;
+    private String orderStatus;
+
+    public OrderRecord(String orderId, LocalDateTime orderDate, String customerId, BigDecimal amount, String currency, String orderStatus) {
+        super(orderId, orderDate, amount, currency);
+        this.customerId = customerId;
+        this.orderStatus = orderStatus;
+    }
+
+    public String getCustomerId() { return customerId; }
+    public void setCustomerId(String customerId) { this.customerId = customerId; }
+    public String getOrderStatus() { return orderStatus; }
+    public void setOrderStatus(String orderStatus) { this.orderStatus = orderStatus; }
+
+    @Override
+    public String getSourceType() { return "ORDER_MANAGEMENT_SYSTEM"; }
+
+    @Override
+    public String toString() {
+        return "OrderRecord[ID=" + recordId + ", Amount=" + amount + ", Customer=" + customerId + "]";
+    }
+}</pre>
+
+<p><strong>Step 3: <code>PaymentTransaction.java</code> (Gateway Payment Child Class)</strong></p>
+<pre>package com.paytrace.model;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+public class PaymentTransaction extends BaseFinancialRecord {
+    private String orderId;
+    private BigDecimal feeAmount;
+    private String gatewayName;
+    private String status;
+
+    public PaymentTransaction(String paymentId, String orderId, LocalDateTime paymentDate, BigDecimal amount, BigDecimal feeAmount, String gatewayName, String status) {
+        super(paymentId, paymentDate, amount, "USD");
+        this.orderId = orderId;
+        this.feeAmount = feeAmount != null ? feeAmount : BigDecimal.ZERO;
+        this.gatewayName = gatewayName;
+        this.status = status;
+    }
+
+    public String getOrderId() { return orderId; }
+    public BigDecimal getFeeAmount() { return feeAmount; }
+    public String getGatewayName() { return gatewayName; }
+    public String getStatus() { return status; }
+
+    @Override
+    public String getSourceType() { return "PAYMENT_GATEWAY"; }
+}</pre>
+
+<p><strong>Step 4: <code>SettlementRecord.java</code> (Bank Settlement Child Class)</strong></p>
+<pre>package com.paytrace.model;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+public class SettlementRecord extends BaseFinancialRecord {
+    private String paymentId;
+    private BigDecimal grossAmount;
+    private BigDecimal netAmount;
+    private BigDecimal bankFee;
+    private String bankReference;
+
+    public SettlementRecord(String settlementId, String paymentId, LocalDateTime settlementDate, BigDecimal grossAmount, BigDecimal netAmount, BigDecimal bankFee, String bankReference) {
+        super(settlementId, settlementDate, netAmount, "USD");
+        this.paymentId = paymentId;
+        this.grossAmount = grossAmount;
+        this.netAmount = netAmount;
+        this.bankFee = bankFee;
+        this.bankReference = bankReference;
+    }
+
+    public String getPaymentId() { return paymentId; }
+    public BigDecimal getGrossAmount() { return grossAmount; }
+    public BigDecimal getNetAmount() { return netAmount; }
+    public BigDecimal getBankFee() { return bankFee; }
+    public String getBankReference() { return bankReference; }
+
+    @Override
+    public String getSourceType() { return "BANK_SETTLEMENT"; }
+}</pre>
+
+<p><strong>Step 5: <code>DiscrepancyType.java</code> & <code>Discrepancy.java</code></strong></p>
+<pre>package com.paytrace.model;
+
+public enum DiscrepancyType {
+    MATCHED, AMOUNT_MISMATCH, MISSING_PAYMENT, MISSING_SETTLEMENT, DUPLICATE_TRANSACTION, INVALID_FORMAT
+}</pre>
+
+<pre>package com.paytrace.model;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+public class Discrepancy {
+    private String id;
+    private DiscrepancyType type;
+    private String orderId;
+    private BigDecimal expectedAmount;
+    private BigDecimal actualAmount;
+    private BigDecimal variance;
+    private String explanation;
+    private LocalDateTime detectedAt;
+
+    public Discrepancy(String id, DiscrepancyType type, String orderId, BigDecimal expectedAmount, BigDecimal actualAmount, String explanation) {
+        this.id = id;
+        this.type = type;
+        this.orderId = orderId;
+        this.expectedAmount = expectedAmount != null ? expectedAmount : BigDecimal.ZERO;
+        this.actualAmount = actualAmount != null ? actualAmount : BigDecimal.ZERO;
+        this.variance = this.expectedAmount.subtract(this.actualAmount);
+        this.explanation = explanation;
+        this.detectedAt = LocalDateTime.now();
+    }
+
+    public String getId() { return id; }
+    public DiscrepancyType getType() { return type; }
+    public String getOrderId() { return orderId; }
+    public BigDecimal getExpectedAmount() { return expectedAmount; }
+    public BigDecimal getActualAmount() { return actualAmount; }
+    public BigDecimal getVariance() { return variance; }
+    public String getExplanation() { return explanation; }
+    public LocalDateTime getDetectedAt() { return detectedAt; }
+}</pre>
+
+<h3>4. Viva / Interview Defense Preparation</h3>
+<div class="viva-card">
+  <div class="viva-q">Q: "Why did you use BigDecimal instead of double for transaction amounts?"</div>
+  <div class="viva-a"><strong>Answer:</strong> <code>double</code> uses binary floating-point representation (IEEE-754) which cannot represent decimal fractions like 0.1 exactly (e.g. 0.1 + 0.2 = 0.30000000000000004). In financial reconciliation, accumulating floating point errors leads to false discrepancies. <code>BigDecimal</code> provides exact arbitrary-precision arithmetic and exact rounding control.</div>
+</div>
+
+<div class="viva-card">
+  <div class="viva-q">Q: "What OOP principles are represented in your design?"</div>
+  <div class="viva-a"><strong>Answer:</strong> 
+  1. <strong>Abstraction:</strong> <code>BaseFinancialRecord</code> defines common contracts and the abstract method <code>getSourceType()</code>.<br>
+  2. <strong>Inheritance:</strong> <code>OrderRecord</code>, <code>PaymentTransaction</code>, and <code>SettlementRecord</code> inherit common fields using <code>super()</code>.<br>
+  3. <strong>Encapsulation:</strong> Private/protected fields with validation checks inside getters/setters (e.g., rejecting negative values).</div>
+</div>
+
+<h3>5. Git Commands to Save & Push</h3>
+<pre>git add .
+git commit -m "feat: implement domain models BaseFinancialRecord, OrderRecord, PaymentTransaction, SettlementRecord, Discrepancy"
+git push origin feature/java-data-models</pre>
+
+<!-- ==================== MEMBER 2: SUJITH E ==================== -->
+<div class="page-break"></div>
+
+<div class="member-badge">Member 2 Guide</div>
+<h1>Sujith E — Core Systems Engineer</h1>
+<div class="meta-box">
+  <p><strong>Primary Role:</strong> Reconciliation Algorithm & Discrepancy Engine</p>
+  <p><strong>Git Branch:</strong> <code>feature/reconciliation-engine</code></p>
+  <p><strong>Target Package:</strong> <code>com.paytrace.service</code> (in <code>backend/src/main/java/com/paytrace/service/</code>)</p>
+</div>
+
+<h3>1. Your Objective</h3>
+<p>You build the <strong>engine room of PayTrace</strong>: the 3-Way Reconciliation Algorithm. You cross-compare Orders, Payments, and Bank Settlements, identify variances, handle a tolerance threshold ($\pm\$0.05$), and produce an immutable reconciliation result in <strong>$O(N)$ linear time</strong> using HashMaps.</p>
+
+<h3>2. Git & Workspace Setup</h3>
+<pre>git clone https://github.com/sujith0718-coder/PayTrace.git
+cd PayTrace
+git checkout feature/reconciliation-engine
+git pull origin main</pre>
+
+<h3>3. Step-by-Step Code Implementation</h3>
+
+<p><strong>Step 1: <code>ReconciliationResult.java</code> (Metrics Container)</strong></p>
+<pre>package com.paytrace.service;
+
+import com.paytrace.model.Discrepancy;
+import java.math.BigDecimal;
+import java.util.List;
+
+public class ReconciliationResult {
+    private int totalRecords;
+    private int matchedRecords;
+    private int discrepanciesCount;
+    private BigDecimal totalOrderValue;
+    private BigDecimal totalSettledValue;
+    private List&lt;Discrepancy&gt; discrepancies;
+
+    public ReconciliationResult(int totalRecords, int matchedRecords, List&lt;Discrepancy&gt; discrepancies, BigDecimal totalOrderValue, BigDecimal totalSettledValue) {
+        this.totalRecords = totalRecords;
+        this.matchedRecords = matchedRecords;
+        this.discrepancies = discrepancies;
+        this.discrepanciesCount = discrepancies.size();
+        this.totalOrderValue = totalOrderValue;
+        this.totalSettledValue = totalSettledValue;
+    }
+
+    public int getTotalRecords() { return totalRecords; }
+    public int getMatchedRecords() { return matchedRecords; }
+    public int getDiscrepanciesCount() { return discrepanciesCount; }
+    public double getReconciliationPercentage() {
+        if (totalRecords == 0) return 100.0;
+        return ((double) matchedRecords / totalRecords) * 100.0;
+    }
+    public List&lt;Discrepancy&gt; getDiscrepancies() { return discrepancies; }
+    public BigDecimal getTotalOrderValue() { return totalOrderValue; }
+    public BigDecimal getTotalSettledValue() { return totalSettledValue; }
+}</pre>
+
+<p><strong>Step 2: <code>ReconciliationEngine.java</code> (The O(N) Algorithm)</strong></p>
+<pre>package com.paytrace.service;
+
+import com.paytrace.model.*;
+import java.math.BigDecimal;
+import java.util.*;
+
+public class ReconciliationEngine {
+    private final BigDecimal tolerance;
+
+    public ReconciliationEngine() {
+        this(new BigDecimal("0.05")); // Default 5 cents tolerance
+    }
+
+    public ReconciliationEngine(BigDecimal tolerance) {
+        this.tolerance = tolerance;
+    }
+
+    public ReconciliationResult reconcile(
+            List&lt;OrderRecord&gt; orders,
+            List&lt;PaymentTransaction&gt; payments,
+            List&lt;SettlementRecord&gt; settlements
+    ) {
+        List&lt;Discrepancy&gt; discrepancies = new ArrayList&lt;&gt;();
+        int matchedCount = 0;
+        BigDecimal totalOrderValue = BigDecimal.ZERO;
+        BigDecimal totalSettledValue = BigDecimal.ZERO;
+
+        // 1. Index payments by orderId into Map&lt;String, List&lt;PaymentTransaction&gt;&gt; to detect duplicates
+        Map&lt;String, List&lt;PaymentTransaction&gt;&gt; paymentMap = new HashMap&lt;&gt;();
+        for (PaymentTransaction p : payments) {
+            paymentMap.computeIfAbsent(p.getOrderId(), k -&gt; new ArrayList&lt;&gt;()).add(p);
+        }
+
+        // 2. Index settlements by paymentId into Map&lt;String, SettlementRecord&gt;
+        Map&lt;String, SettlementRecord&gt; settlementMap = new HashMap&lt;&gt;();
+        for (SettlementRecord s : settlements) {
+            settlementMap.put(s.getPaymentId(), s);
+            totalSettledValue = totalSettledValue.add(s.getNetAmount());
+        }
+
+        // 3. 3-Way Match Loop over Orders
+        int discIdCounter = 100;
+        for (OrderRecord order : orders) {
+            totalOrderValue = totalOrderValue.add(order.getAmount());
+            String orderId = order.getRecordId();
+            List&lt;PaymentTransaction&gt; matchingPayments = paymentMap.get(orderId);
+
+            // Case A: Missing Payment
+            if (matchingPayments == null || matchingPayments.isEmpty()) {
+                discrepancies.add(new Discrepancy(
+                    "DISC-" + (++discIdCounter), DiscrepancyType.MISSING_PAYMENT,
+                    orderId, order.getAmount(), BigDecimal.ZERO,
+                    "Order exists in OMS, but no payment gateway transaction was captured."
+                ));
+                continue;
+            }
+
+            // Case B: Duplicate Transactions
+            if (matchingPayments.size() &gt; 1) {
+                BigDecimal totalPaid = matchingPayments.stream()
+                        .map(PaymentTransaction::getAmount)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                discrepancies.add(new Discrepancy(
+                    "DISC-" + (++discIdCounter), DiscrepancyType.DUPLICATE_TRANSACTION,
+                    orderId, order.getAmount(), totalPaid,
+                    "Multiple payments (" + matchingPayments.size() + ") detected for single order #" + orderId
+                ));
+                continue;
+            }
+
+            PaymentTransaction payment = matchingPayments.get(0);
+
+            // Case C: Amount Mismatch
+            BigDecimal amountDiff = order.getAmount().subtract(payment.getAmount()).abs();
+            if (amountDiff.compareTo(tolerance) &gt; 0) {
+                discrepancies.add(new Discrepancy(
+                    "DISC-" + (++discIdCounter), DiscrepancyType.AMOUNT_MISMATCH,
+                    orderId, order.getAmount(), payment.getAmount(),
+                    "Order amount ($" + order.getAmount() + ") does not match gateway amount ($" + payment.getAmount() + ")."
+                ));
+                continue;
+            }
+
+            // Case D: Missing Settlement
+            SettlementRecord settlement = settlementMap.get(payment.getRecordId());
+            if (settlement == null) {
+                discrepancies.add(new Discrepancy(
+                    "DISC-" + (++discIdCounter), DiscrepancyType.MISSING_SETTLEMENT,
+                    orderId, payment.getAmount(), BigDecimal.ZERO,
+                    "Payment captured on gateway, but bank settlement record has not settled."
+                ));
+                continue;
+            }
+
+            matchedCount++;
+        }
+
+        return new ReconciliationResult(orders.size(), matchedCount, discrepancies, totalOrderValue, totalSettledValue);
+    }
+}</pre>
+
+<h3>4. Viva / Interview Defense Preparation</h3>
+<div class="viva-card">
+  <div class="viva-q">Q: "How does your matching algorithm avoid an O(N^3) performance bottleneck?"</div>
+  <div class="viva-a"><strong>Answer:</strong> "If we used nested loops (checking every order against every payment and settlement), the time complexity would be $O(N \times M \times K)$, which for 2,000 records requires $8 \text{ billion comparisons}$ and causes the JVM to hang. By pre-indexing payments and settlements into in-memory HashMaps keyed by <code>orderId</code> and <code>paymentId</code>, lookups happen in constant $O(1)$ time, reducing overall algorithm complexity to linear $O(N)$."</div>
+</div>
+
+<div class="viva-card">
+  <div class="viva-q">Q: "Why did you use Map&lt;String, List&lt;PaymentTransaction&gt;&gt; instead of Map&lt;String, PaymentTransaction&gt;?"</div>
+  <div class="viva-a"><strong>Answer:</strong> "If a customer accidentally clicks 'Submit Payment' twice and gets double-charged, mapping to a single value would overwrite the first payment and hide the bug. Mapping to a <code>List</code> allows us to detect when the size is greater than 1 and flag a <code>DUPLICATE_TRANSACTION</code>."</div>
+</div>
+
+<h3>5. Git Commands to Save & Push</h3>
+<pre>git add .
+git commit -m "feat: implement O(N) HashMap 3-way reconciliation engine with tolerance checks"
+git push origin feature/reconciliation-engine</pre>
+
+<!-- ==================== MEMBER 3: THARUN J ==================== -->
+<div class="page-break"></div>
+
+<div class="member-badge">Member 3 Guide</div>
+<h1>Tharun J — Ingestion Specialist</h1>
+<div class="meta-box">
+  <p><strong>Primary Role:</strong> CSV Ingestion, Parsing & Non-blocking Validation</p>
+  <p><strong>Git Branch:</strong> <code>feature/csv-import</code></p>
+  <p><strong>Target Package:</strong> <code>com.paytrace.ingestion</code> (in <code>backend/src/main/java/com/paytrace/ingestion/</code>)</p>
+</div>
+
+<h3>1. Your Objective</h3>
+<p>You build the <strong>data gateway</strong> of PayTrace. You ingest three CSV files (Orders, Payments, Settlements). Your parser must tokenize rows, cast strings to <code>BigDecimal</code> and dates, validate required headers, and <strong>never crash</strong> if row 45 contains corrupted data—capturing warnings and continuing parsing smoothly.</p>
+
+<h3>2. Git & Workspace Setup</h3>
+<pre>git clone https://github.com/sujith0718-coder/PayTrace.git
+cd PayTrace
+git checkout feature/csv-import
+git pull origin main</pre>
+
+<h3>3. Step-by-Step Code Implementation</h3>
+
+<p><strong>Step 1: <code>CsvValidationResult.java</code> (Generic Parser Envelope)</strong></p>
+<pre>package com.paytrace.ingestion;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class CsvValidationResult&lt;T&gt; {
+    private List&lt;T&gt; validRecords = new ArrayList&lt;&gt;();
+    private List&lt;String&gt; warnings = new ArrayList&lt;&gt;();
+    private int invalidRowsCount = 0;
+
+    public void addRecord(T record) { validRecords.add(record); }
+    public void addWarning(String warning) {
+        warnings.add(warning);
+        invalidRowsCount++;
+    }
+
+    public List&lt;T&gt; getValidRecords() { return validRecords; }
+    public List&lt;String&gt; getWarnings() { return warnings; }
+    public int getInvalidRowsCount() { return invalidRowsCount; }
+    public int getTotalRowsParsed() { return validRecords.size() + invalidRowsCount; }
+}</pre>
+
+<p><strong>Step 2: <code>CsvImportService.java</code> (OpenCSV Parser Engine)</strong></p>
+<pre>package com.paytrace.ingestion;
+
+import com.opencsv.CSVReader;
+import com.paytrace.model.*;
+import java.io.*;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+public class CsvImportService {
+
+    public CsvValidationResult&lt;OrderRecord&gt; parseOrders(InputStream inputStream) {
+        CsvValidationResult&lt;OrderRecord&gt; result = new CsvValidationResult&lt;&gt;();
+        try (CSVReader reader = new CSVReader(new InputStreamReader(inputStream))) {
+            String[] line;
+            int lineNumber = 0;
+            while ((line = reader.readNext()) != null) {
+                lineNumber++;
+                if (lineNumber == 1) continue; // Skip header
+
+                if (line.length &lt; 4) {
+                    result.addWarning("Line " + lineNumber + ": Insufficient columns");
+                    continue;
+                }
+                try {
+                    String orderId = line[0].trim();
+                    String customerId = line[2].trim();
+                    BigDecimal amount = new BigDecimal(line[3].trim());
+                    String currency = line.length &gt; 4 ? line[4].trim() : "USD";
+                    String status = line.length &gt; 5 ? line[5].trim() : "COMPLETED";
+
+                    if (orderId.isEmpty()) {
+                        result.addWarning("Line " + lineNumber + ": Missing order_id");
+                        continue;
+                    }
+                    result.addRecord(new OrderRecord(orderId, LocalDateTime.now(), customerId, amount, currency, status));
+                } catch (NumberFormatException e) {
+                    result.addWarning("Line " + lineNumber + ": Invalid numeric amount '" + line[3] + "'");
+                } catch (Exception e) {
+                    result.addWarning("Line " + lineNumber + ": Corrupted row - " + e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            result.addWarning("Fatal CSV read error: " + e.getMessage());
+        }
+        return result;
+    }
+
+    public CsvValidationResult&lt;PaymentTransaction&gt; parsePayments(InputStream inputStream) {
+        CsvValidationResult&lt;PaymentTransaction&gt; result = new CsvValidationResult&lt;&gt;();
+        try (CSVReader reader = new CSVReader(new InputStreamReader(inputStream))) {
+            String[] line;
+            int lineNumber = 0;
+            while ((line = reader.readNext()) != null) {
+                lineNumber++;
+                if (lineNumber == 1) continue;
+                try {
+                    String paymentId = line[0].trim();
+                    String orderId = line[1].trim();
+                    BigDecimal amount = new BigDecimal(line[3].trim());
+                    BigDecimal fee = line.length &gt; 4 ? new BigDecimal(line[4].trim()) : BigDecimal.ZERO;
+                    String status = line.length &gt; 5 ? line[5].trim() : "CAPTURED";
+                    String gateway = line.length &gt; 6 ? line[6].trim() : "Stripe";
+
+                    result.addRecord(new PaymentTransaction(paymentId, orderId, LocalDateTime.now(), amount, fee, gateway, status));
+                } catch (Exception e) {
+                    result.addWarning("Line " + lineNumber + ": Corrupted payment row");
+                }
+            }
+        } catch (Exception e) {
+            result.addWarning("Fatal CSV read error: " + e.getMessage());
+        }
+        return result;
+    }
+
+    public CsvValidationResult&lt;SettlementRecord&gt; parseSettlements(InputStream inputStream) {
+        CsvValidationResult&lt;SettlementRecord&gt; result = new CsvValidationResult&lt;&gt;();
+        try (CSVReader reader = new CSVReader(new InputStreamReader(inputStream))) {
+            String[] line;
+            int lineNumber = 0;
+            while ((line = reader.readNext()) != null) {
+                lineNumber++;
+                if (lineNumber == 1) continue;
+                try {
+                    String settlementId = line[0].trim();
+                    String paymentId = line[1].trim();
+                    BigDecimal gross = new BigDecimal(line[3].trim());
+                    BigDecimal net = new BigDecimal(line[4].trim());
+                    BigDecimal fee = line.length &gt; 5 ? new BigDecimal(line[5].trim()) : BigDecimal.ZERO;
+                    String ref = line.length &gt; 6 ? line[6].trim() : "BANK-REF";
+
+                    result.addRecord(new SettlementRecord(settlementId, paymentId, LocalDateTime.now(), gross, net, fee, ref));
+                } catch (Exception e) {
+                    result.addWarning("Line " + lineNumber + ": Corrupted settlement row");
+                }
+            }
+        } catch (Exception e) {
+            result.addWarning("Fatal CSV read error: " + e.getMessage());
+        }
+        return result;
+    }
+}</pre>
+
+<h3>4. Viva / Interview Defense Preparation</h3>
+<div class="viva-card">
+  <div class="viva-q">Q: "How does your ingestion pipeline prevent a single corrupt row from failing an entire 10,000-row file?"</div>
+  <div class="viva-a"><strong>Answer:</strong> "I implemented fine-grained, row-level try-catch exception handling. Instead of throwing an unchecked exception that aborts the transaction, any <code>NumberFormatException</code> or missing field is isolated into a <code>ValidationWarning</code> log with the exact line number. The loop continues, preserving all valid records."</div>
+</div>
+
+<div class="viva-card">
+  <div class="viva-q">Q: "Why did you use InputStream instead of java.io.File?"</div>
+  <div class="viva-a"><strong>Answer:</strong> "In modern Spring Boot web applications, client uploads arrive via HTTP as <code>MultipartFile</code>, which streams input directly in memory as an <code>InputStream</code>. Using <code>InputStream</code> prevents costly disk I/O and works seamlessly for unit testing."</div>
+</div>
+
+<h3>5. Git Commands to Save & Push</h3>
+<pre>git add .
+git commit -m "feat: implement CsvImportService with OpenCSV and non-blocking line validation"
+git push origin feature/csv-import</pre>
+
+<!-- ==================== MEMBER 4: MITHUNASRI J ==================== -->
+<div class="page-break"></div>
+
+<div class="member-badge">Member 4 Guide</div>
+<h1>Mithunasri J — QA & Workflow Engineer</h1>
+<div class="meta-box">
+  <p><strong>Primary Role:</strong> Investigation State Machine & JUnit 5 Testing Suite</p>
+  <p><strong>Git Branch:</strong> <code>feature/investigation-testing</code></p>
+  <p><strong>Target Packages:</strong> <code>com.paytrace.workflow</code> & <code>com.paytrace</code> (tests)</p>
+</div>
+
+<h3>1. Your Objective</h3>
+<p>You build the <strong>Resolution Workflow and Quality Assurance</strong> of PayTrace:
+1. Build the <strong>Investigation Case State Machine</strong>: Discrepancy &rarr; <code>OPEN</code> &rarr; <code>UNDER_REVIEW</code> &rarr; <code>RESOLVED</code> (with mandatory resolution category and audit note).
+2. Author the <strong>JUnit 5 test suite</strong> that validates Thurika's models, Sujith's algorithm, and Tharun's CSV reader.</p>
+
+<h3>2. Git & Workspace Setup</h3>
+<pre>git clone https://github.com/sujith0718-coder/PayTrace.git
+cd PayTrace
+git checkout feature/investigation-testing
+git pull origin main</pre>
+
+<h3>3. Step-by-Step Code Implementation</h3>
+
+<p><strong>Step 1: <code>InvestigationStatus.java</code> & <code>InvestigationCase.java</code></strong></p>
+<pre>package com.paytrace.workflow;
+
+public enum InvestigationStatus {
+    OPEN, UNDER_REVIEW, RESOLVED, REOPENED
+}</pre>
+
+<pre>package com.paytrace.workflow;
+
+import com.paytrace.model.Discrepancy;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+public class InvestigationCase {
+    private String caseId;
+    private Discrepancy discrepancy;
+    private InvestigationStatus status;
+    private String assignedAnalyst;
+    private String resolutionCategory;
+    private String resolutionNote;
+    private LocalDateTime createdAt;
+    private LocalDateTime resolvedAt;
+    private List&lt;String&gt; notes = new ArrayList&lt;&gt;();
+
+    public InvestigationCase(String caseId, Discrepancy discrepancy, String assignedAnalyst) {
+        this.caseId = caseId;
+        this.discrepancy = discrepancy;
+        this.assignedAnalyst = assignedAnalyst;
+        this.status = InvestigationStatus.OPEN;
+        this.createdAt = LocalDateTime.now();
+    }
+
+    public void moveToUnderReview() {
+        if (this.status == InvestigationStatus.RESOLVED) {
+            throw new IllegalStateException("Cannot move a RESOLVED case to UNDER_REVIEW directly. Reopen first.");
+        }
+        this.status = InvestigationStatus.UNDER_REVIEW;
+    }
+
+    public void resolve(String category, String note) {
+        if (note == null || note.trim().isEmpty()) {
+            throw new IllegalArgumentException("Resolution note is mandatory.");
+        }
+        this.status = InvestigationStatus.RESOLVED;
+        this.resolutionCategory = category;
+        this.resolutionNote = note;
+        this.resolvedAt = LocalDateTime.now();
+        this.notes.add("RESOLVED [" + category + "]: " + note);
+    }
+
+    public void reopen(String reason) {
+        this.status = InvestigationStatus.REOPENED;
+        this.notes.add("REOPENED: " + reason);
+    }
+
+    public void addNote(String author, String text) {
+        this.notes.add(author + " (" + LocalDateTime.now() + "): " + text);
+    }
+
+    public String getCaseId() { return caseId; }
+    public Discrepancy getDiscrepancy() { return discrepancy; }
+    public InvestigationStatus getStatus() { return status; }
+    public String getAssignedAnalyst() { return assignedAnalyst; }
+    public List&lt;String&gt; getNotes() { return notes; }
+    public String getResolutionCategory() { return resolutionCategory; }
+}</pre>
+
+<p><strong>Step 2: <code>ReconciliationEngineTest.java</code> (JUnit 5 Test Suite)</strong></p>
+<p>Put this file in <code>backend/src/test/java/com/paytrace/ReconciliationEngineTest.java</code>:</p>
+<pre>package com.paytrace;
+
+import com.paytrace.model.*;
+import com.paytrace.service.*;
+import com.paytrace.workflow.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class ReconciliationEngineTest {
+    private ReconciliationEngine engine;
+
+    @BeforeEach
+    void setUp() {
+        engine = new ReconciliationEngine(new BigDecimal("0.05"));
+    }
+
+    @Test
+    @DisplayName("Test 1: Perfectly balanced 3-way match")
+    void testPerfectMatch() {
+        OrderRecord order = new OrderRecord("ORD-1", LocalDateTime.now(), "CUST-1", new BigDecimal("100.00"), "USD", "COMPLETED");
+        PaymentTransaction payment = new PaymentTransaction("PAY-1", "ORD-1", LocalDateTime.now(), new BigDecimal("100.00"), new BigDecimal("2.00"), "Stripe", "CAPTURED");
+        SettlementRecord settlement = new SettlementRecord("SET-1", "PAY-1", LocalDateTime.now(), new BigDecimal("100.00"), new BigDecimal("98.00"), new BigDecimal("2.00"), "BANK-1");
+
+        ReconciliationResult result = engine.reconcile(List.of(order), List.of(payment), List.of(settlement));
+
+        assertEquals(1, result.getMatchedRecords());
+        assertEquals(0, result.getDiscrepanciesCount());
+        assertEquals(100.0, result.getReconciliationPercentage());
+    }
+
+    @Test
+    @DisplayName("Test 2: Amount mismatch outside tolerance ($250 vs $230)")
+    void testAmountMismatch() {
+        OrderRecord order = new OrderRecord("ORD-2", LocalDateTime.now(), "CUST-2", new BigDecimal("250.00"), "USD", "COMPLETED");
+        PaymentTransaction payment = new PaymentTransaction("PAY-2", "ORD-2", LocalDateTime.now(), new BigDecimal("230.00"), new BigDecimal("4.00"), "Stripe", "CAPTURED");
+        SettlementRecord settlement = new SettlementRecord("SET-2", "PAY-2", LocalDateTime.now(), new BigDecimal("230.00"), new BigDecimal("226.00"), new BigDecimal("4.00"), "BANK-2");
+
+        ReconciliationResult result = engine.reconcile(List.of(order), List.of(payment), List.of(settlement));
+
+        assertEquals(0, result.getMatchedRecords());
+        assertEquals(1, result.getDiscrepanciesCount());
+        assertEquals(DiscrepancyType.AMOUNT_MISMATCH, result.getDiscrepancies().get(0).getType());
+        assertEquals(new BigDecimal("20.00"), result.getDiscrepancies().get(0).getVariance());
+    }
+
+    @Test
+    @DisplayName("Test 3: Missing payment gateway record")
+    void testMissingPayment() {
+        OrderRecord order = new OrderRecord("ORD-3", LocalDateTime.now(), "CUST-3", new BigDecimal("150.00"), "USD", "COMPLETED");
+        ReconciliationResult result = engine.reconcile(List.of(order), List.of(), List.of());
+
+        assertEquals(1, result.getDiscrepanciesCount());
+        assertEquals(DiscrepancyType.MISSING_PAYMENT, result.getDiscrepancies().get(0).getType());
+    }
+
+    @Test
+    @DisplayName("Test 4: Investigation state machine transition and mandatory note")
+    void testInvestigationWorkflow() {
+        Discrepancy disc = new Discrepancy("DISC-1", DiscrepancyType.AMOUNT_MISMATCH, "ORD-1", new BigDecimal("100"), new BigDecimal("90"), "Variance");
+        InvestigationCase inv = new InvestigationCase("INV-101", disc, "Mithunasri J");
+
+        assertEquals(InvestigationStatus.OPEN, inv.getStatus());
+        inv.moveToUnderReview();
+        assertEquals(InvestigationStatus.UNDER_REVIEW, inv.getStatus());
+
+        assertThrows(IllegalArgumentException.class, () -&gt; inv.resolve("TIMING_DIFFERENCE", "   "));
+
+        inv.resolve("TIMING_DIFFERENCE", "Verified customer promotional credit.");
+        assertEquals(InvestigationStatus.RESOLVED, inv.getStatus());
+        assertEquals("TIMING_DIFFERENCE", inv.getResolutionCategory());
+    }
+}</pre>
+
+<h3>4. Viva / Interview Defense Preparation</h3>
+<div class="viva-card">
+  <div class="viva-q">Q: "Why did you write automated unit tests instead of only testing through the browser?"</div>
+  <div class="viva-a"><strong>Answer:</strong> "Automated JUnit 5 tests provide deterministic regression testing. When another teammate modifies a class, running <code>mvn test</code> validates in seconds whether edge cases—like amount tolerances, missing payments, or state transitions—still function properly without having to manually upload files."</div>
+</div>
+
+<div class="viva-card">
+  <div class="viva-q">Q: "Why is a note required when resolving an investigation case?"</div>
+  <div class="viva-a"><strong>Answer:</strong> "In financial software auditability, closing an unexplained revenue variance without documentation is a compliance risk. Our method throws an <code>IllegalArgumentException</code> if the explanation string is empty, enforcing accountability."</div>
+</div>
+
+<h3>5. Git Commands to Save & Push</h3>
+<pre>git add .
+git commit -m "feat: implement investigation case workflow and JUnit 5 regression test suite"
+git push origin feature/investigation-testing</pre>
+
+</body>
+</html>
