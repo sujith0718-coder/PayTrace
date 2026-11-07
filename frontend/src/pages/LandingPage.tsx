@@ -11,6 +11,10 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { useAudio } from '../context/AudioContext';
+import { ShinyText } from '../components/ui/ShinyText';
+import { DotGrid } from '../components/ui/DotGrid';
+import { CountUp } from '../components/ui/CountUp';
+import { CardSpotlight } from '../components/ui/CardSpotlight';
 
 interface LandingPageProps {
   onNavigate: (path: string) => void;
@@ -71,6 +75,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
 
       {/* Hero Section */}
       <section className="relative pt-16 pb-24 px-6 overflow-hidden">
+        {/* React Bits Ambient Dot Grid */}
+        <DotGrid dotSize={1.5} gap={28} dotColor="rgba(214, 182, 108, 0.12)" />
+
         {/* Glow Effects */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-gold-500/10 rounded-full blur-[140px] pointer-events-none" />
         <div className="absolute top-1/3 left-1/4 w-[400px] h-[250px] bg-lavender-500/10 rounded-full blur-[120px] pointer-events-none" />
@@ -86,9 +93,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight font-sans leading-tight">
               Every Transaction. <br />
               Every Detail. <br />
-              <span className="bg-gradient-to-r from-gold-300 via-gold-500 to-gold-400 bg-clip-text text-transparent">
-                In Perfect Balance.
-              </span>
+              <ShinyText text="In Perfect Balance." speed={4.5} />
             </h1>
 
             <p className="text-base sm:text-lg text-slate-300 max-w-2xl font-normal leading-relaxed">
@@ -123,11 +128,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
             {/* Metric pill strip */}
             <div className="pt-8 grid grid-cols-3 gap-4 border-t border-navy-800/80 max-w-lg mx-auto lg:mx-0">
               <div>
-                <p className="text-2xl font-extrabold text-gold-400 font-mono">100%</p>
+                <p className="text-2xl font-extrabold text-gold-400 font-mono">
+                  <CountUp to={100} duration={1.5} suffix="%" />
+                </p>
                 <p className="text-xs text-slate-400 font-medium mt-0.5">Zero Fund Custody</p>
               </div>
               <div>
-                <p className="text-2xl font-extrabold text-ivory-50 font-mono">3-Way</p>
+                <p className="text-2xl font-extrabold text-ivory-50 font-mono">
+                  <CountUp to={3} duration={1.2} suffix="-Way" />
+                </p>
                 <p className="text-xs text-slate-400 font-medium mt-0.5">Automated Cross-Match</p>
               </div>
               <div>
@@ -161,8 +170,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                 </div>
               </div>
 
-              {/* Front Card (Midnight Luxe Gold Master) */}
-              <div 
+              {/* Front Card (Midnight Luxe Gold Master with CardSpotlight & Tilt) */}
+              <CardSpotlight
+                maxTilt={14}
+                spotlightColor="rgba(214, 182, 108, 0.35)"
                 className="absolute inset-x-0 top-24 h-56 rounded-2xl bg-gradient-to-br from-navy-900 via-navy-800 to-navy-950 border-2 border-gold-500/60 shadow-gold-glow p-6 rotate-3 transform hover:rotate-0 transition-transform duration-500 cursor-pointer"
                 onClick={playCoinChime}
               >
@@ -177,7 +188,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                 </div>
                 <div className="mt-6">
                   <p className="text-[11px] text-slate-400 uppercase tracking-widest">Reconciled Accuracy</p>
-                  <p className="text-2xl font-extrabold font-mono text-gold-400">98.24%</p>
+                  <p className="text-2xl font-extrabold font-mono text-gold-400">
+                    <CountUp to={98.24} decimals={2} suffix="%" duration={2.2} />
+                  </p>
                 </div>
                 <div className="mt-5 flex justify-between items-end">
                   <div>
@@ -189,7 +202,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
                     <div className="w-6 h-6 rounded-full bg-gold-500/80 -ml-3" />
                   </div>
                 </div>
-              </div>
+              </CardSpotlight>
 
               {/* Floating Golden Coin Badge */}
               <div 

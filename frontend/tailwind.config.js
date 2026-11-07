@@ -57,7 +57,16 @@ export default {
         'gold-glow': '0 0 25px -5px rgba(214, 182, 108, 0.3)',
         'emerald-glow': '0 0 25px -5px rgba(38, 150, 107, 0.3)',
         'crimson-glow': '0 0 25px -5px rgba(217, 92, 92, 0.3)',
-      }
+      },
+      keyframes: {
+        shine: {
+          '0%': { 'background-position': '100%' },
+          '100%': { 'background-position': '-100%' },
+        },
+      },
+      animation: {
+        shine: 'shine 5s linear infinite',
+      },
     },
   },
   plugins: [],

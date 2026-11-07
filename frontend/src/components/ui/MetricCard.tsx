@@ -4,7 +4,7 @@ import { Card } from './Card';
 
 export interface MetricCardProps {
   title: string;
-  value: string | number;
+  value: React.ReactNode;
   subtitle?: string;
   icon?: React.ReactNode;
   trend?: {

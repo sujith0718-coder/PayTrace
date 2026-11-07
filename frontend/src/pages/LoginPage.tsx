@@ -4,6 +4,8 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
 import { useAudio } from '../context/AudioContext';
+import { DotGrid } from '../components/ui/DotGrid';
+import { ShinyText } from '../components/ui/ShinyText';
 
 interface LoginPageProps {
   onNavigate: (path: string) => void;
@@ -43,6 +45,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
 
   return (
     <div className="min-h-screen bg-navy-950 text-ivory-50 flex flex-col justify-center py-12 px-6 lg:px-8 relative overflow-hidden">
+      {/* React Bits Ambient Dot Grid */}
+      <DotGrid dotSize={1.5} gap={28} dotColor="rgba(214, 182, 108, 0.12)" />
+
       {/* Background Ambience */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] bg-gold-500/10 rounded-full blur-[140px] pointer-events-none" />
 
@@ -57,7 +62,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
           </div>
         </div>
         <h2 className="text-3xl font-extrabold tracking-tight font-sans">
-          Sign In to <span className="text-gold-500">PayTrace</span>
+          Sign In to <ShinyText text="PayTrace" speed={4} className="text-gold-400" />
         </h2>
         <p className="text-xs text-slate-400 font-mono uppercase tracking-wider">
           Payment Discrepancy Detection & Reconciliation

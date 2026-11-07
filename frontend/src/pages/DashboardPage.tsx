@@ -12,6 +12,7 @@ import { MetricCard } from '../components/ui/MetricCard';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import { CountUp } from '../components/ui/CountUp';
 import { useReconciliation } from '../context/ReconciliationContext';
 import { formatCurrency, formatNumber } from '../utils/cn';
 import { 
@@ -97,7 +98,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title="Total Ingested Volume"
-          value={formatNumber(totalVolume)}
+          value={<CountUp to={totalVolume} duration={1.8} />}
           subtitle="Transactions evaluated"
           icon={<FileSpreadsheet className="w-5 h-5" />}
           variant="navy"
@@ -106,7 +107,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
         />
         <MetricCard
           title="Reconciliation Match Rate"
-          value={`${matchRate}%`}
+          value={<CountUp to={matchRate} decimals={1} suffix="%" duration={1.8} />}
           subtitle="Mathematical exact balance"
           icon={<DollarSign className="w-5 h-5" />}
           variant="emerald"
@@ -115,7 +116,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
         />
         <MetricCard
           title="Active Discrepancies"
-          value={formatNumber(discrepanciesCount)}
+          value={<CountUp to={discrepanciesCount} duration={1.8} />}
           subtitle="Requires attention"
           icon={<AlertCircle className="w-5 h-5" />}
           variant="crimson"
@@ -124,7 +125,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
         />
         <MetricCard
           title="Open Investigations"
-          value={formatNumber(openInvestigationsCount)}
+          value={<CountUp to={openInvestigationsCount} duration={1.8} />}
           subtitle="Under analyst review"
           icon={<FileSearch className="w-5 h-5" />}
           variant="gold"
