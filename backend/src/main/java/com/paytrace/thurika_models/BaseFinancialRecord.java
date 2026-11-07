@@ -73,3 +73,4 @@ public abstract class BaseFinancialRecord {
      */
     public abstract String getSourceType();
 }
+

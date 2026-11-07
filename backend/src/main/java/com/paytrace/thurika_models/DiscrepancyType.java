@@ -23,3 +23,4 @@ public enum DiscrepancyType {
     // Row has corrupted numbers or missing mandatory columns
     INVALID_FORMAT
 }
+

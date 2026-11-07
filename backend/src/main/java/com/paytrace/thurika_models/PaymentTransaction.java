@@ -67,3 +67,4 @@ public class PaymentTransaction extends BaseFinancialRecord {
         return "PAYMENT_GATEWAY";
     }
 }
+

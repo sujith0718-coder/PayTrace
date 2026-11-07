@@ -123,3 +123,4 @@ public class InvestigationCase {
         return resolvedAt;
     }
 }
+

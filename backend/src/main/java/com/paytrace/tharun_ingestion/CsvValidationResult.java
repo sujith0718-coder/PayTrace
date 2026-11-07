@@ -41,3 +41,4 @@ public class CsvValidationResult<T> {
         return validRecords.size() + invalidRowsCount;
     }
 }
+

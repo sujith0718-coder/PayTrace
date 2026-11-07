@@ -17,3 +17,4 @@ public enum InvestigationStatus {
     // Previously resolved case flagged for re-investigation
     REOPENED
 }
+

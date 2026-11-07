@@ -52,3 +52,4 @@ public class OrderRecord extends BaseFinancialRecord {
         return "OrderRecord[ID=" + recordId + ", Amount=" + amount + ", Customer=" + customerId + "]";
     }
 }
+

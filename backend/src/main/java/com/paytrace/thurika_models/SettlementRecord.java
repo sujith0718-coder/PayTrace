@@ -58,3 +58,4 @@ public class SettlementRecord extends BaseFinancialRecord {
         return "BANK_SETTLEMENT";
     }
 }
+
