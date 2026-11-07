@@ -23,6 +23,7 @@ export interface OrderRecord {
   amount: string; // BigDecimal representation as string to avoid float precision loss
   currency: string;
   status: 'COMPLETED' | 'PENDING' | 'CANCELLED';
+  createdAt?: string;
 }
 
 export interface PaymentTransaction {
@@ -33,6 +34,7 @@ export interface PaymentTransaction {
   fee: string;
   status: 'CAPTURED' | 'FAILED' | 'REFUNDED';
   gateway: string;
+  createdAt?: string;
 }
 
 export interface SettlementRecord {
@@ -43,6 +45,7 @@ export interface SettlementRecord {
   fee: string;
   netAmount: string;
   bankReference: string;
+  createdAt?: string;
 }
 
 // Ingestion Batch Model

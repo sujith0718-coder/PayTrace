@@ -32,6 +32,15 @@ public class ReconciliationEngine {
             List<PaymentTransaction> payments,
             List<SettlementRecord> settlements
     ) {
+        return reconcile(null, orders, payments, settlements);
+    }
+
+    public ReconciliationResult reconcile(
+            String runId,
+            List<OrderRecord> orders,
+            List<PaymentTransaction> payments,
+            List<SettlementRecord> settlements
+    ) {
         if (orders == null) orders = Collections.emptyList();
         if (payments == null) payments = Collections.emptyList();
         if (settlements == null) settlements = Collections.emptyList();
@@ -40,6 +49,7 @@ public class ReconciliationEngine {
         int matchedCount = 0;
         BigDecimal totalOrderValue = BigDecimal.ZERO;
         BigDecimal totalSettledValue = BigDecimal.ZERO;
+        String idPrefix = (runId != null && !runId.trim().isEmpty()) ? runId + "-DISC-" : "DISC-";
 
         // -------------------------------------------------------------
         // STEP 1: Pre-index payments by orderId and by paymentId
@@ -84,7 +94,7 @@ public class ReconciliationEngine {
             // Case A: Missing Payment Record
             if (matchingPayments == null || matchingPayments.isEmpty()) {
                 discrepancies.add(new Discrepancy(
-                        "DISC-" + (++discIdCounter),
+                        idPrefix + (++discIdCounter),
                         DiscrepancyType.MISSING_PAYMENT,
                         orderId,
                         order.getAmount(),
@@ -110,7 +120,7 @@ public class ReconciliationEngine {
                 if (settlement != null) processedSettlementIds.add(settlement.getRecordId());
 
                 discrepancies.add(new Discrepancy(
-                        "DISC-" + (++discIdCounter),
+                        idPrefix + (++discIdCounter),
                         DiscrepancyType.DUPLICATE_TRANSACTION,
                         orderId,
                         order.getAmount(),
@@ -136,7 +146,7 @@ public class ReconciliationEngine {
             BigDecimal amountDiff = order.getAmount().subtract(payment.getAmount()).abs();
             if (amountDiff.compareTo(tolerance) > 0) {
                 discrepancies.add(new Discrepancy(
-                        "DISC-" + (++discIdCounter),
+                        idPrefix + (++discIdCounter),
                         DiscrepancyType.AMOUNT_MISMATCH,
                         orderId,
                         order.getAmount(),
@@ -152,7 +162,7 @@ public class ReconciliationEngine {
             // Case D: Missing Bank Settlement
             if (settlement == null) {
                 discrepancies.add(new Discrepancy(
-                        "DISC-" + (++discIdCounter),
+                        idPrefix + (++discIdCounter),
                         DiscrepancyType.MISSING_SETTLEMENT,
                         orderId,
                         payment.getAmount(),
@@ -186,7 +196,7 @@ public class ReconciliationEngine {
                         : payment.getRecordId();
 
                 discrepancies.add(new Discrepancy(
-                        "DISC-" + (++discIdCounter),
+                        idPrefix + (++discIdCounter),
                         DiscrepancyType.MISSING_ORDER,
                         displayOrderId,
                         BigDecimal.ZERO,
@@ -206,13 +216,17 @@ public class ReconciliationEngine {
             if (!processedSettlementIds.contains(settlement.getRecordId())) {
                 processedSettlementIds.add(settlement.getRecordId());
 
+                String refTxn = (settlement.getPaymentId() != null && !settlement.getPaymentId().trim().isEmpty())
+                        ? settlement.getPaymentId().trim()
+                        : settlement.getBankReference();
+
                 discrepancies.add(new Discrepancy(
-                        "DISC-" + (++discIdCounter),
+                        idPrefix + (++discIdCounter),
                         DiscrepancyType.UNMATCHED_SETTLEMENT,
-                        settlement.getRecordId(),
+                        null, // Stored as NULL when no corresponding OMS order exists
                         BigDecimal.ZERO,
                         settlement.getGrossAmount(),
-                        "Bank settlement deposit recorded (" + settlement.getRecordId() + ", ref: " + settlement.getBankReference() + "), but no matching payment gateway transaction was found.",
+                        "Bank settlement deposit recorded (" + settlement.getRecordId() + ", ref: " + refTxn + "), but no matching payment gateway transaction was found.",
                         null,
                         null,
                         settlement

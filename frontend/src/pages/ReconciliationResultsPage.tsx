@@ -1,19 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Search, 
   Filter, 
   ArrowRight, 
   FileSearch, 
   CheckCircle2, 
-  AlertCircle,
-  Download,
-  Info
+  AlertCircle, 
+  Download, 
+  Info 
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { useReconciliation } from '../context/ReconciliationContext';
-import { DiscrepancyType } from '../types/api';
+import { DiscrepancyType, DiscrepancyItem } from '../types/api';
+import { apiClient } from '../services/apiClient';
+import { formatCurrency, formatDate } from '../utils/formatters';
 
 interface ReconciliationResultsPageProps {
   onNavigate: (path: string) => void;
@@ -23,8 +25,33 @@ export const ReconciliationResultsPage: React.FC<ReconciliationResultsPageProps>
   const { activeRun } = useReconciliation();
   const [selectedTab, setSelectedTab] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [persistedDiscrepancies, setPersistedDiscrepancies] = useState<DiscrepancyItem[]>(activeRun?.discrepancies || []);
+  const [isLoadingDiscrepancies, setIsLoadingDiscrepancies] = useState<boolean>(false);
 
-  const discrepancies = activeRun?.discrepancies || [];
+  useEffect(() => {
+    if (activeRun?.runId) {
+      setIsLoadingDiscrepancies(true);
+      apiClient.getDiscrepancies(activeRun.runId)
+        .then(list => {
+          if (Array.isArray(list) && list.length > 0) {
+            setPersistedDiscrepancies(list);
+          } else if (activeRun.discrepancies && activeRun.discrepancies.length > 0) {
+            setPersistedDiscrepancies(activeRun.discrepancies);
+          } else {
+            setPersistedDiscrepancies([]);
+          }
+        })
+        .catch(err => {
+          console.error('Failed to load persisted discrepancies', err);
+          if (activeRun.discrepancies) {
+            setPersistedDiscrepancies(activeRun.discrepancies);
+          }
+        })
+        .finally(() => setIsLoadingDiscrepancies(false));
+    }
+  }, [activeRun?.runId]);
+
+  const discrepancies = persistedDiscrepancies;
 
   const filterCounts = {
     ALL: discrepancies.length,
@@ -39,9 +66,9 @@ export const ReconciliationResultsPage: React.FC<ReconciliationResultsPageProps>
   const filteredDiscrepancies = discrepancies.filter((item) => {
     const matchesTab = selectedTab === 'ALL' || item.type === selectedTab;
     const matchesSearch = 
-      item.orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.explanation.toLowerCase().includes(searchQuery.toLowerCase());
+      (item.orderId ? item.orderId.toLowerCase().includes(searchQuery.toLowerCase()) : false) ||
+      (item.id ? item.id.toLowerCase().includes(searchQuery.toLowerCase()) : false) ||
+      (item.explanation ? item.explanation.toLowerCase().includes(searchQuery.toLowerCase()) : false);
     return matchesTab && matchesSearch;
   });
 
@@ -233,13 +260,24 @@ export const ReconciliationResultsPage: React.FC<ReconciliationResultsPageProps>
                     {item.orderRecord ? (
                       <div>
                         <p className="font-bold text-navy-950">{item.orderRecord.orderId}</p>
-                        <p className="text-[11px] text-slate-500 font-sans">Amount: ${item.orderRecord.amount}</p>
-                        <p className="text-[10px] text-slate-400 font-sans">{item.orderRecord.orderDate}</p>
+                        <p className="text-[11px] text-slate-600 font-sans">
+                          Amount: {formatCurrency(item.orderRecord.amount, item.orderRecord.currency)}
+                        </p>
+                        <p className="text-[10px] text-slate-500 font-sans">
+                          Txn: {formatDate(item.orderRecord.orderDate)}
+                        </p>
+                        {item.orderRecord.createdAt && (
+                          <p className="text-[9px] text-slate-400 font-sans">
+                            DB: {formatDate(item.orderRecord.createdAt)}
+                          </p>
+                        )}
                       </div>
                     ) : item.type !== 'MISSING_ORDER' && item.type !== 'UNMATCHED_SETTLEMENT' && item.orderId ? (
                       <div>
                         <p className="font-bold text-navy-950">{item.orderId}</p>
-                        <p className="text-[11px] text-slate-500 font-sans">Expected: ${item.expectedAmount}</p>
+                        <p className="text-[11px] text-slate-600 font-sans">
+                          Expected: {formatCurrency(item.expectedAmount)}
+                        </p>
                       </div>
                     ) : (
                       <span className="text-slate-400 italic font-sans text-xs">No Order in OMS</span>
@@ -251,10 +289,20 @@ export const ReconciliationResultsPage: React.FC<ReconciliationResultsPageProps>
                     {item.paymentRecord ? (
                       <div className={item.type === 'AMOUNT_MISMATCH' ? 'p-1.5 rounded bg-crimson-50 border border-crimson-200/60' : ''}>
                         <p className="font-bold text-navy-950">{item.paymentRecord.paymentId}</p>
-                        <p className={`text-[11px] font-sans ${item.type === 'AMOUNT_MISMATCH' ? 'text-crimson-700 font-bold' : 'text-slate-500'}`}>
-                          Captured: ${item.paymentRecord.amount}
+                        <p className={`text-[11px] font-sans ${item.type === 'AMOUNT_MISMATCH' ? 'text-crimson-700 font-bold' : 'text-slate-600'}`}>
+                          Captured: {formatCurrency(item.paymentRecord.amount)}
                         </p>
-                        <p className="text-[10px] text-slate-400 font-sans">{item.paymentRecord.gateway} • Fee: ${item.paymentRecord.fee}</p>
+                        <p className="text-[10px] text-slate-400 font-sans">
+                          {item.paymentRecord.gateway} • Fee: {formatCurrency(item.paymentRecord.fee)}
+                        </p>
+                        <p className="text-[10px] text-slate-500 font-sans">
+                          Txn: {formatDate(item.paymentRecord.paymentDate)}
+                        </p>
+                        {item.paymentRecord.createdAt && (
+                          <p className="text-[9px] text-slate-400 font-sans">
+                            DB: {formatDate(item.paymentRecord.createdAt)}
+                          </p>
+                        )}
                       </div>
                     ) : (
                       <span className="text-crimson-600 font-sans text-xs font-bold bg-crimson-50 px-2 py-1 rounded">
@@ -268,8 +316,21 @@ export const ReconciliationResultsPage: React.FC<ReconciliationResultsPageProps>
                     {item.settlementRecord ? (
                       <div>
                         <p className="font-bold text-navy-950">{item.settlementRecord.settlementId}</p>
-                        <p className="text-[11px] text-slate-500 font-sans">Gross: ${item.settlementRecord.grossAmount}</p>
-                        <p className="text-[10px] text-slate-400 font-sans">Net: ${item.settlementRecord.netAmount} • Ref: {item.settlementRecord.bankReference}</p>
+                        <p className="text-[11px] text-slate-600 font-sans">
+                          Gross: {formatCurrency(item.settlementRecord.grossAmount)}
+                        </p>
+                        <p className="text-[10px] text-slate-500 font-sans">
+                          {item.settlementRecord.paymentId ? `GW Txn: ${item.settlementRecord.paymentId} • ` : ''}
+                          Net: {formatCurrency(item.settlementRecord.netAmount)} • Ref: {item.settlementRecord.bankReference}
+                        </p>
+                        <p className="text-[10px] text-slate-500 font-sans">
+                          Settled: {formatDate(item.settlementRecord.settlementDate)}
+                        </p>
+                        {item.settlementRecord.createdAt && (
+                          <p className="text-[9px] text-slate-400 font-sans">
+                            DB: {formatDate(item.settlementRecord.createdAt)}
+                          </p>
+                        )}
                       </div>
                     ) : (
                       <span className="text-amber-600 font-sans text-xs font-bold bg-amber-50 px-2 py-1 rounded">
@@ -281,7 +342,7 @@ export const ReconciliationResultsPage: React.FC<ReconciliationResultsPageProps>
                   {/* Variance */}
                   <td className="py-4 px-4 text-right">
                     <span className="text-xs font-bold text-crimson-600 bg-crimson-50 px-2 py-1 rounded">
-                      {item.variance}
+                      {formatCurrency(item.variance)}
                     </span>
                   </td>
 

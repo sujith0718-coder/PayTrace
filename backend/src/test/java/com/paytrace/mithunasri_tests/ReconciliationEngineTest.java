@@ -99,17 +99,30 @@ public class ReconciliationEngineTest {
     void testSampleCsvReconciliation() throws Exception {
         com.paytrace.tharun_ingestion.CsvImportService importService = new com.paytrace.tharun_ingestion.CsvImportService();
 
-        java.io.File omsFile = new java.io.File("C:/Users/sujit/Downloads/PayTrace_sample_test_CSVs/oms_orders.csv");
-        java.io.File gwFile = new java.io.File("C:/Users/sujit/Downloads/PayTrace_sample_test_CSVs/gateway_transactions.csv");
-        java.io.File bankFile = new java.io.File("C:/Users/sujit/Downloads/PayTrace_sample_test_CSVs/bank_settlements.csv");
+        java.io.InputStream omsIn = getClass().getClassLoader().getResourceAsStream("oms_orders.csv");
+        if (omsIn == null) {
+            java.io.File omsFile = new java.io.File("C:/Users/sujit/Downloads/PayTrace_sample_test_CSVs/oms_orders.csv");
+            assertTrue(omsFile.exists(), "OMS CSV should exist");
+            omsIn = new java.io.FileInputStream(omsFile);
+        }
 
-        assertTrue(omsFile.exists(), "OMS CSV should exist");
-        assertTrue(gwFile.exists(), "Gateway CSV should exist");
-        assertTrue(bankFile.exists(), "Bank CSV should exist");
+        java.io.InputStream gwIn = getClass().getClassLoader().getResourceAsStream("gateway_transactions.csv");
+        if (gwIn == null) {
+            java.io.File gwFile = new java.io.File("C:/Users/sujit/Downloads/PayTrace_sample_test_CSVs/gateway_transactions.csv");
+            assertTrue(gwFile.exists(), "Gateway CSV should exist");
+            gwIn = new java.io.FileInputStream(gwFile);
+        }
 
-        var ordersRes = importService.parseOrders(new java.io.FileInputStream(omsFile));
-        var paymentsRes = importService.parsePayments(new java.io.FileInputStream(gwFile));
-        var settlementsRes = importService.parseSettlements(new java.io.FileInputStream(bankFile));
+        java.io.InputStream bankIn = getClass().getClassLoader().getResourceAsStream("bank_settlements.csv");
+        if (bankIn == null) {
+            java.io.File bankFile = new java.io.File("C:/Users/sujit/Downloads/PayTrace_sample_test_CSVs/bank_settlements.csv");
+            assertTrue(bankFile.exists(), "Bank CSV should exist");
+            bankIn = new java.io.FileInputStream(bankFile);
+        }
+
+        var ordersRes = importService.parseOrders(omsIn);
+        var paymentsRes = importService.parsePayments(gwIn);
+        var settlementsRes = importService.parseSettlements(bankIn);
 
         assertEquals(6, ordersRes.getValidRecords().size(), "Should parse 6 orders (ORD-1001 to ORD-1006)");
         assertEquals(6, paymentsRes.getValidRecords().size(), "Should parse 6 payments (GW-5001 to GW-5005, GW-5007)");
@@ -136,7 +149,11 @@ public class ReconciliationEngineTest {
 
         var discMap = new java.util.HashMap<String, Discrepancy>();
         for (Discrepancy d : result.getDiscrepancies()) {
-            discMap.put(d.getOrderId(), d);
+            if (d.getOrderId() != null) {
+                discMap.put(d.getOrderId(), d);
+            } else if (d.getSettlementRecord() != null) {
+                discMap.put(d.getSettlementRecord().getRecordId(), d);
+            }
         }
 
         // 1. ORD-1003
@@ -170,10 +187,98 @@ public class ReconciliationEngineTest {
         // 5. BANK-9008
         assertTrue(discMap.containsKey("BANK-9008"));
         assertEquals(DiscrepancyType.UNMATCHED_SETTLEMENT, discMap.get("BANK-9008").getType());
+        assertNull(discMap.get("BANK-9008").getOrderId(), "Order ID should be null when no OMS order exists");
         assertEquals(0, new BigDecimal("300.00").compareTo(discMap.get("BANK-9008").getVariance().abs()));
         assertNull(discMap.get("BANK-9008").getOrderRecord());
         assertNull(discMap.get("BANK-9008").getPaymentRecord());
         assertNotNull(discMap.get("BANK-9008").getSettlementRecord());
+    }
+
+    @Test
+    @DisplayName("Test 6: Run-scoped discrepancy IDs prevent primary key collisions across runs")
+    void testRunScopedDiscrepancyIds() {
+        OrderRecord order1 = new OrderRecord("ORD-A", LocalDateTime.now(), "CUST-A", new BigDecimal("100.00"), "USD", "COMPLETED");
+        OrderRecord order2 = new OrderRecord("ORD-B", LocalDateTime.now(), "CUST-B", new BigDecimal("200.00"), "USD", "COMPLETED");
+
+        // Reconcile under RUN-1001
+        ReconciliationResult run1Result = engine.reconcile("RUN-1001", List.of(order1, order2), List.of(), List.of());
+        assertEquals(2, run1Result.getDiscrepancies().size());
+        assertTrue(run1Result.getDiscrepancies().get(0).getId().startsWith("RUN-1001-DISC-"));
+        assertTrue(run1Result.getDiscrepancies().get(1).getId().startsWith("RUN-1001-DISC-"));
+
+        // Reconcile under RUN-1002
+        ReconciliationResult run2Result = engine.reconcile("RUN-1002", List.of(order1, order2), List.of(), List.of());
+        assertEquals(2, run2Result.getDiscrepancies().size());
+        assertTrue(run2Result.getDiscrepancies().get(0).getId().startsWith("RUN-1002-DISC-"));
+        assertTrue(run2Result.getDiscrepancies().get(1).getId().startsWith("RUN-1002-DISC-"));
+
+        // Verify IDs between runs are completely distinct (no primary key collision)
+        assertNotEquals(run1Result.getDiscrepancies().get(0).getId(), run2Result.getDiscrepancies().get(0).getId());
+    }
+
+    @Test
+    @DisplayName("Test 7: Unmatched settlement reference mapping and NULL order_id")
+    void testUnmatchedSettlementReferenceMappingAndNullOrderId() {
+        // Settlement BANK-7008 referencing gateway transaction GW-9998
+        SettlementRecord settlement = new SettlementRecord(
+                "BANK-7008",
+                "GW-9998",
+                LocalDateTime.now(),
+                new BigDecimal("275.00"),
+                new BigDecimal("275.00"),
+                BigDecimal.ZERO,
+                "BANK-7008"
+        );
+
+        ReconciliationResult result = engine.reconcile("RUN-45411", List.of(), List.of(), List.of(settlement));
+
+        assertEquals(1, result.getDiscrepanciesCount());
+        Discrepancy disc = result.getDiscrepancies().get(0);
+
+        assertEquals(DiscrepancyType.UNMATCHED_SETTLEMENT, disc.getType());
+        assertNull(disc.getOrderId(), "Order ID must be NULL when no OMS order exists");
+        assertEquals("RUN-45411-DISC-101", disc.getId());
+        assertEquals(0, new BigDecimal("275.00").compareTo(disc.getActualAmount()));
+        assertEquals(0, new BigDecimal("275.00").compareTo(disc.getVariance().abs()));
+        
+        // Explanation must reference the gateway txn GW-9998
+        assertTrue(disc.getExplanation().contains("ref: GW-9998"), 
+                "Explanation must reference gateway txn GW-9998: " + disc.getExplanation());
+        assertTrue(disc.getExplanation().contains("BANK-7008"), 
+                "Explanation must reference bank settlement ID BANK-7008: " + disc.getExplanation());
+        
+        // Settlement record fields preserved separately
+        assertNotNull(disc.getSettlementRecord());
+        assertEquals("BANK-7008", disc.getSettlementRecord().getRecordId());
+        assertEquals("GW-9998", disc.getSettlementRecord().getPaymentId());
+    }
+
+    @Test
+    @DisplayName("Test 8: Idempotency and historical data protection across separate runs")
+    void testIdempotencyAndHistoricalDataIsolation() {
+        OrderRecord orderOld = new OrderRecord("ORD-HIST-1", LocalDateTime.now(), "CUST-1", new BigDecimal("100.00"), "USD", "COMPLETED");
+        OrderRecord orderNew = new OrderRecord("ORD-NEW-1", LocalDateTime.now(), "CUST-2", new BigDecimal("200.00"), "USD", "COMPLETED");
+
+        // Old historical run
+        ReconciliationResult oldRun = engine.reconcile("RUN-HIST-001", List.of(orderOld), List.of(), List.of());
+        assertEquals(1, oldRun.getDiscrepanciesCount());
+        String oldDiscId = oldRun.getDiscrepancies().get(0).getId();
+        assertEquals("RUN-HIST-001-DISC-101", oldDiscId);
+
+        // New independent run
+        ReconciliationResult newRun = engine.reconcile("RUN-NEW-002", List.of(orderNew), List.of(), List.of());
+        assertEquals(1, newRun.getDiscrepanciesCount());
+        String newDiscId = newRun.getDiscrepancies().get(0).getId();
+        assertEquals("RUN-NEW-002-DISC-101", newDiscId);
+
+        // Assert separate keys preventing collision
+        assertNotEquals(oldDiscId, newDiscId);
+
+        // Re-running RUN-NEW-002 generates exact deterministic matching results (Idempotent)
+        ReconciliationResult rerun = engine.reconcile("RUN-NEW-002", List.of(orderNew), List.of(), List.of());
+        assertEquals(newDiscId, rerun.getDiscrepancies().get(0).getId());
+        assertEquals(newRun.getDiscrepancies().get(0).getType(), rerun.getDiscrepancies().get(0).getType());
+        assertEquals(newRun.getDiscrepancies().get(0).getVariance(), rerun.getDiscrepancies().get(0).getVariance());
     }
 }
 

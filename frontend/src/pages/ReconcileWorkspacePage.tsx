@@ -60,7 +60,7 @@ export const ReconcileWorkspacePage: React.FC<ReconcileWorkspacePageProps> = ({ 
         if (i === 1) {
           setLogs(prev => [
             ...prev,
-            `[MATCH] ${result.metrics.matchedRecords} Orders verified with 1:1 Payment captures ($${result.metrics.totalSettledValue})`,
+            `[MATCH] ${result.metrics.matchedRecords} Orders verified with 1:1 Payment captures (₹${result.metrics.totalSettledValue})`,
             result.metrics.discrepanciesCount > 0 
               ? `[ALERT] ${result.metrics.discrepanciesCount} discrepancy cases flagged by algorithm.` 
               : '[SUCCESS] Clean 1:1 match across all processed order records.'
@@ -74,8 +74,8 @@ export const ReconcileWorkspacePage: React.FC<ReconcileWorkspacePageProps> = ({ 
         } else if (i === 3) {
           setLogs(prev => [
             ...prev,
-            '[MATH] Mathematical precision evaluated with BigDecimal tolerance ($0.05).',
-            `[VARIANCE] Total detected financial variance: $${result.metrics.unreconciledVariance}`
+            '[MATH] Mathematical precision evaluated with BigDecimal tolerance (₹0.05).',
+            `[VARIANCE] Total detected financial variance: ₹${result.metrics.unreconciledVariance}`
           ]);
         } else if (i === 4) {
           setLogs(prev => [
@@ -161,7 +161,7 @@ export const ReconcileWorkspacePage: React.FC<ReconcileWorkspacePageProps> = ({ 
               <span className="text-[9px] font-mono font-bold tracking-widest mt-1 text-ivory-50">ENGINE</span>
             </div>
             <p className="mt-3 text-xs font-bold text-ivory-50">Java 21 O(N) Engine</p>
-            <p className="text-[11px] text-slate-400 font-mono">Tolerance: ±$0.05</p>
+            <p className="text-[11px] text-slate-400 font-mono">Tolerance: ±₹0.05</p>
           </div>
 
           {/* Right: Output Split */}

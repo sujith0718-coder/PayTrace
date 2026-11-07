@@ -29,6 +29,23 @@ public class CsvImportService {
         }
     }
 
+    private LocalDateTime parseDateTimeSafely(String val, LocalDateTime defaultVal) {
+        if (val == null || val.trim().isEmpty()) return defaultVal;
+        String s = val.trim();
+        try {
+            if (s.contains(" ") && !s.contains("T")) {
+                s = s.replace(" ", "T");
+            }
+            return LocalDateTime.parse(s);
+        } catch (Exception e1) {
+            try {
+                return java.time.LocalDate.parse(val.trim()).atStartOfDay();
+            } catch (Exception e2) {
+                return defaultVal;
+            }
+        }
+    }
+
     /**
      * Parses Orders CSV dynamically based on headers:
      * order_id, customer_id, order_timestamp/order_date, order_amount/amount, currency, order_status
@@ -50,6 +67,7 @@ public class CsvImportService {
 
             int idIdx = colMap.getOrDefault("orderid", colMap.getOrDefault("id", colMap.getOrDefault("ordernumber", 0)));
             int custIdx = colMap.getOrDefault("customerid", colMap.getOrDefault("customer", colMap.getOrDefault("custid", header.length > 1 ? 1 : -1)));
+            int dateIdx = colMap.getOrDefault("ordertimestamp", colMap.getOrDefault("orderdate", colMap.getOrDefault("timestamp", colMap.getOrDefault("date", -1))));
             int amountIdx = colMap.getOrDefault("orderamount", colMap.getOrDefault("amount", colMap.getOrDefault("ordervalue", colMap.getOrDefault("totalamount", 3))));
             int currIdx = colMap.getOrDefault("currency", colMap.getOrDefault("curr", -1));
             int statusIdx = colMap.getOrDefault("orderstatus", colMap.getOrDefault("status", -1));
@@ -69,6 +87,10 @@ public class CsvImportService {
                     }
 
                     String customerId = (custIdx >= 0 && custIdx < line.length) ? line[custIdx].trim() : "CUST-DEFAULT";
+                    LocalDateTime orderDate = LocalDateTime.now();
+                    if (dateIdx >= 0 && dateIdx < line.length) {
+                        orderDate = parseDateTimeSafely(line[dateIdx], orderDate);
+                    }
                     
                     String rawAmount = (amountIdx < line.length) ? line[amountIdx].trim() : "0";
                     BigDecimal amount = parseAmountSafely(rawAmount, null);
@@ -82,7 +104,7 @@ public class CsvImportService {
                     String status = (statusIdx >= 0 && statusIdx < line.length && !line[statusIdx].trim().isEmpty()) 
                             ? line[statusIdx].trim() : "COMPLETED";
 
-                    OrderRecord order = new OrderRecord(orderId, LocalDateTime.now(), customerId, amount, currency, status);
+                    OrderRecord order = new OrderRecord(orderId, orderDate, customerId, amount, currency, status);
                     result.addRecord(order);
 
                 } catch (Exception e) {
@@ -117,6 +139,7 @@ public class CsvImportService {
 
             int pIdIdx = colMap.getOrDefault("gatewaytxnid", colMap.getOrDefault("paymentid", colMap.getOrDefault("txnid", colMap.getOrDefault("id", 0))));
             int oIdIdx = colMap.getOrDefault("orderid", 1);
+            int dateIdx = colMap.getOrDefault("gatewaytimestamp", colMap.getOrDefault("paymentdate", colMap.getOrDefault("paymenttimestamp", colMap.getOrDefault("timestamp", colMap.getOrDefault("date", -1)))));
             int amountIdx = colMap.getOrDefault("gatewayamount", colMap.getOrDefault("paymentamount", colMap.getOrDefault("amount", 3)));
             int feeIdx = colMap.getOrDefault("feeamount", colMap.getOrDefault("fee", colMap.getOrDefault("gatewayfee", -1)));
             int gatewayIdx = colMap.getOrDefault("paymentmethod", colMap.getOrDefault("gateway", colMap.getOrDefault("method", -1)));
@@ -138,6 +161,11 @@ public class CsvImportService {
                         continue;
                     }
 
+                    LocalDateTime paymentDate = LocalDateTime.now();
+                    if (dateIdx >= 0 && dateIdx < line.length) {
+                        paymentDate = parseDateTimeSafely(line[dateIdx], paymentDate);
+                    }
+
                     String rawAmount = (amountIdx < line.length) ? line[amountIdx].trim() : "0";
                     BigDecimal amount = parseAmountSafely(rawAmount, null);
                     if (amount == null) {
@@ -155,7 +183,7 @@ public class CsvImportService {
                     String status = (statusIdx >= 0 && statusIdx < line.length && !line[statusIdx].trim().isEmpty()) 
                             ? line[statusIdx].trim() : "SUCCESS";
 
-                    PaymentTransaction payment = new PaymentTransaction(paymentId, orderId, LocalDateTime.now(), amount, fee, gateway, status);
+                    PaymentTransaction payment = new PaymentTransaction(paymentId, orderId, paymentDate, amount, fee, gateway, status);
                     result.addRecord(payment);
 
                 } catch (Exception e) {
@@ -190,6 +218,7 @@ public class CsvImportService {
 
             int sIdIdx = colMap.getOrDefault("banksettlementid", colMap.getOrDefault("settlementid", colMap.getOrDefault("id", 0)));
             int pIdIdx = colMap.getOrDefault("gatewaytxnid", colMap.getOrDefault("paymentid", colMap.getOrDefault("txnid", 1)));
+            int dateIdx = colMap.getOrDefault("settlementtimestamp", colMap.getOrDefault("settlementdate", colMap.getOrDefault("timestamp", colMap.getOrDefault("date", -1))));
             int grossIdx = colMap.getOrDefault("settlementamount", colMap.getOrDefault("grossamount", colMap.getOrDefault("gross", colMap.getOrDefault("amount", 3))));
             int netIdx = colMap.getOrDefault("netamount", colMap.getOrDefault("net", -1));
             int feeIdx = colMap.getOrDefault("settlementfee", colMap.getOrDefault("fee", colMap.getOrDefault("bankfee", -1)));
@@ -209,6 +238,11 @@ public class CsvImportService {
                     if (settlementId.isEmpty()) {
                         result.addWarning("Line " + lineNumber + ": Missing settlement_id");
                         continue;
+                    }
+
+                    LocalDateTime settlementDate = LocalDateTime.now();
+                    if (dateIdx >= 0 && dateIdx < line.length) {
+                        settlementDate = parseDateTimeSafely(line[dateIdx], settlementDate);
                     }
 
                     String rawGross = (grossIdx < line.length) ? line[grossIdx].trim() : "0";
@@ -238,7 +272,7 @@ public class CsvImportService {
                     String ref = (refIdx >= 0 && refIdx < line.length && !line[refIdx].trim().isEmpty()) 
                             ? line[refIdx].trim() : settlementId;
 
-                    SettlementRecord settlement = new SettlementRecord(settlementId, paymentId, LocalDateTime.now(), gross, net, fee, ref);
+                    SettlementRecord settlement = new SettlementRecord(settlementId, paymentId, settlementDate, gross, net, fee, ref);
                     result.addRecord(settlement);
 
                 } catch (Exception e) {

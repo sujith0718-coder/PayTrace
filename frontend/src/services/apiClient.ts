@@ -568,16 +568,13 @@ class ApiClient {
 
   public async getReconciliationRun(_runId: string): Promise<ReconciliationRun> {
     if (!USE_MOCKS) {
-      try {
-        const resp = await fetch(`${API_BASE_URL}/reconciliation-runs/${_runId}`, {
-          headers: this.getAuthHeader()
-        });
-        if (resp.ok) {
-          return await resp.json();
-        }
-      } catch (err) {
-        console.warn('Backend run fetch unavailable, using mock data:', err);
+      const resp = await fetch(`${API_BASE_URL}/reconciliation-runs/${_runId}`, {
+        headers: this.getAuthHeader()
+      });
+      if (resp.ok) {
+        return await resp.json();
       }
+      throw new Error(`Failed to fetch reconciliation run ${_runId}: HTTP ${resp.status}`);
     }
 
     await new Promise(r => setTimeout(r, 300));
@@ -586,19 +583,23 @@ class ApiClient {
 
   public async getDiscrepancies(_runId: string): Promise<DiscrepancyItem[]> {
     if (!USE_MOCKS) {
-      try {
-        const resp = await fetch(`${API_BASE_URL}/reconciliation-runs/${_runId}/discrepancies`, {
-          headers: this.getAuthHeader()
-        });
-        if (resp.ok) {
-          return await resp.json();
-        }
-      } catch (err) {
-        console.warn('Backend discrepancies fetch unavailable, using mock data:', err);
+      const resp = await fetch(`${API_BASE_URL}/reconciliation-runs/${_runId}/discrepancies`, {
+        headers: this.getAuthHeader()
+      });
+      if (resp.ok) {
+        return await resp.json();
+      } else {
+        throw new Error(`Failed to fetch discrepancies for ${_runId}: HTTP ${resp.status}`);
       }
     }
 
-    await new Promise(r => setTimeout(r, 200));
+    const stored = localStorage.getItem(STORAGE_KEYS.RUNS);
+    if (stored) {
+      try {
+        const run: ReconciliationRun = JSON.parse(stored);
+        if (run.discrepancies) return run.discrepancies;
+      } catch {}
+    }
     return MOCK_DISCREPANCIES;
   }
 
@@ -646,20 +647,16 @@ class ApiClient {
   // INVESTIGATIONS
   public async getInvestigations(): Promise<InvestigationCase[]> {
     if (!USE_MOCKS) {
-      try {
-        const resp = await fetch(`${API_BASE_URL}/investigations`, {
-          headers: this.getAuthHeader()
-        });
-        if (resp.ok) {
-          const rawList = await resp.json();
-          if (Array.isArray(rawList) && rawList.length > 0) {
-            const list = rawList.map((c, i) => this.normalizeInvestigationCase(c, i));
-            this.saveLocalInvestigations(list);
-            return list;
-          }
-        }
-      } catch (err) {
-        console.warn('Backend investigations fetch unavailable, using local cache:', err);
+      const resp = await fetch(`${API_BASE_URL}/investigations`, {
+        headers: this.getAuthHeader()
+      });
+      if (resp.ok) {
+        const rawList = await resp.json();
+        const list = Array.isArray(rawList) ? rawList.map((c, i) => this.normalizeInvestigationCase(c, i)) : [];
+        this.saveLocalInvestigations(list);
+        return list;
+      } else {
+        throw new Error(`Failed to fetch investigations: HTTP ${resp.status}`);
       }
     }
 

@@ -19,6 +19,7 @@ import { useReconciliation } from '../context/ReconciliationContext';
 import { useAudio } from '../context/AudioContext';
 import { InvestigationCase, InvestigationStatus, ResolutionCategory } from '../types/api';
 import { apiClient } from '../services/apiClient';
+import { formatCurrency, formatDate } from '../utils/formatters';
 
 interface InvestigationCentrePageProps {
   onNavigate: (path: string) => void;
@@ -170,7 +171,7 @@ export const InvestigationCentrePage: React.FC<InvestigationCentrePageProps> = (
                       {explanation}
                     </p>
                     <div className="mt-3 flex items-center justify-between text-[11px] font-mono text-slate-400 pt-2 border-t border-slate-100">
-                      <span>Variance: ${variance}</span>
+                      <span>Variance: {formatCurrency(variance)}</span>
                       <span>{analyst}</span>
                     </div>
                   </div>
@@ -252,15 +253,15 @@ export const InvestigationCentrePage: React.FC<InvestigationCentrePageProps> = (
                 <div className="grid grid-cols-3 gap-3 pt-2 text-center font-mono">
                   <div className="p-2.5 rounded-lg bg-white border border-slate-200">
                     <p className="text-[10px] text-slate-400 uppercase">Expected Amount</p>
-                    <p className="text-sm font-bold text-navy-950">${selectedCase.discrepancy?.expectedAmount || '0.00'}</p>
+                    <p className="text-sm font-bold text-navy-950">{formatCurrency(selectedCase.discrepancy?.expectedAmount)}</p>
                   </div>
                   <div className="p-2.5 rounded-lg bg-white border border-slate-200">
                     <p className="text-[10px] text-slate-400 uppercase">Actual Amount</p>
-                    <p className="text-sm font-bold text-navy-950">${selectedCase.discrepancy?.actualAmount || '0.00'}</p>
+                    <p className="text-sm font-bold text-navy-950">{formatCurrency(selectedCase.discrepancy?.actualAmount)}</p>
                   </div>
                   <div className="p-2.5 rounded-lg bg-crimson-50 border border-crimson-200">
                     <p className="text-[10px] text-crimson-700 uppercase font-bold">Variance</p>
-                    <p className="text-sm font-black text-crimson-600">${selectedCase.discrepancy?.variance || (selectedCase as any).varianceAmount || '0.00'}</p>
+                    <p className="text-sm font-black text-crimson-600">{formatCurrency(selectedCase.discrepancy?.variance || (selectedCase as any).varianceAmount)}</p>
                   </div>
                 </div>
               </div>
