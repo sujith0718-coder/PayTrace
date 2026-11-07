@@ -3,7 +3,6 @@ package com.paytrace.controller;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.sql.DataSource;
@@ -14,16 +13,15 @@ import java.util.Map;
 
 /**
  * Health and diagnostics controller for Render deployment monitoring.
- * Provides public status probes without requiring authentication.
+ * Maps to both /health and /api/health for seamless compatibility with all frontend URL formats.
  */
 @RestController
-@RequestMapping("/api")
 public class HealthController {
 
     @Autowired(required = false)
     private DataSource dataSource;
 
-    @GetMapping("/health")
+    @GetMapping({"/health", "/api/health"})
     public ResponseEntity<Map<String, Object>> healthCheck() {
         Map<String, Object> response = new HashMap<>();
         response.put("status", "UP");
@@ -52,7 +50,7 @@ public class HealthController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/")
+    @GetMapping({"/", "/api", "/api/"})
     public ResponseEntity<Map<String, String>> rootInfo() {
         Map<String, String> info = new HashMap<>();
         info.put("service", "PayTrace Reconciliation Engine");
@@ -62,4 +60,3 @@ public class HealthController {
         return ResponseEntity.ok(info);
     }
 }
-

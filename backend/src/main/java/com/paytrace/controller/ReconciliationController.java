@@ -13,7 +13,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.sql.DataSource;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -22,15 +21,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Production Reconciliation Controller.
- * Integrates:
- * - Tharun J's CsvImportService (OpenCSV stream parsing)
- * - Sujith E's ReconciliationEngine (O(N) 3-way matching)
- * - Thurika G's Domain Models (OrderRecord, PaymentTransaction, SettlementRecord, Discrepancy)
- * - Mithunasri J's Investigation Case workflow & persistence
- * - TiDB Cloud MySQL persistence via DataSource
+ * Maps endpoints to both /... and /api/... for flexible client consumption.
  */
 @RestController
-@RequestMapping("/api")
 public class ReconciliationController {
 
     @Autowired(required = false)
@@ -38,12 +31,10 @@ public class ReconciliationController {
 
     private final CsvImportService csvImportService = new CsvImportService();
 
-    // In-memory cache for active uploaded records in current session
     private final Map<String, List<OrderRecord>> batchOrders = new ConcurrentHashMap<>();
     private final Map<String, List<PaymentTransaction>> batchPayments = new ConcurrentHashMap<>();
     private final Map<String, List<SettlementRecord>> batchSettlements = new ConcurrentHashMap<>();
 
-    // Keep active run and active discrepancies in memory as well for sub-millisecond retrieval
     private final Map<String, Map<String, Object>> runsCache = new ConcurrentHashMap<>();
     private final Map<String, List<Map<String, Object>>> runDiscrepanciesCache = new ConcurrentHashMap<>();
     private final List<Map<String, Object>> investigationsCache = Collections.synchronizedList(new ArrayList<>());
@@ -106,14 +97,10 @@ public class ReconciliationController {
             }
         }
 
-        // Initialize starter demo data if empty
         initStarterData();
     }
 
-    /**
-     * Ingests 3 real CSV files using Tharun's CsvImportService.
-     */
-    @PostMapping("/imports/upload")
+    @PostMapping({"/imports/upload", "/api/imports/upload"})
     public ResponseEntity<Map<String, Object>> uploadFiles(
             @RequestParam(value = "ordersFile", required = false) MultipartFile ordersFile,
             @RequestParam(value = "paymentsFile", required = false) MultipartFile paymentsFile,
@@ -146,7 +133,6 @@ public class ReconciliationController {
             warnings.add("Upload stream processing error: " + e.getMessage());
         }
 
-        // If user uploaded empty dummy files (e.g. from 1-click test button), load default dataset
         if (orders.isEmpty()) {
             orders = createDefaultOrders();
             payments = createDefaultPayments();
@@ -172,10 +158,7 @@ public class ReconciliationController {
         return ResponseEntity.ok(resp);
     }
 
-    /**
-     * Executes real 3-Way Reconciliation using Sujith's ReconciliationEngine.
-     */
-    @PostMapping("/reconciliation-runs")
+    @PostMapping({"/reconciliation-runs", "/api/reconciliation-runs"})
     public ResponseEntity<Map<String, Object>> triggerRun(@RequestBody(required = false) Map<String, Object> req) {
         String batchId = req != null && req.containsKey("batchId") ? req.get("batchId").toString() : null;
         BigDecimal tolerance = new BigDecimal("0.05");
@@ -185,7 +168,6 @@ public class ReconciliationController {
             } catch (Exception ignored) {}
         }
 
-        // Fetch records for this batch (or fallback to latest active batch)
         List<OrderRecord> orders = batchId != null ? batchOrders.get(batchId) : null;
         List<PaymentTransaction> payments = batchId != null ? batchPayments.get(batchId) : null;
         List<SettlementRecord> settlements = batchId != null ? batchSettlements.get(batchId) : null;
@@ -203,14 +185,12 @@ public class ReconciliationController {
             }
         }
 
-        // Run Sujith's Reconciliation Engine
         ReconciliationEngine engine = new ReconciliationEngine(tolerance);
         ReconciliationResult result = engine.reconcile(orders, payments, settlements);
 
         String runId = "RUN-" + (System.currentTimeMillis() % 100000);
         String finalBatchId = batchId != null ? batchId : "BATCH-101";
 
-        // Convert Discrepancies to DTO Maps
         List<Map<String, Object>> discrepancyMaps = new ArrayList<>();
         for (Discrepancy d : result.getDiscrepancies()) {
             Map<String, Object> map = new HashMap<>();
@@ -226,7 +206,6 @@ public class ReconciliationController {
             map.put("createdAt", Instant.now().toString());
             discrepancyMaps.add(map);
 
-            // Create corresponding investigation case
             Map<String, Object> inv = new HashMap<>();
             inv.put("id", "INV-" + d.getId());
             inv.put("discrepancyId", d.getId());
@@ -243,7 +222,6 @@ public class ReconciliationController {
 
         runDiscrepanciesCache.put(runId, discrepancyMaps);
 
-        // Build Response
         Map<String, Object> run = new HashMap<>();
         run.put("runId", runId);
         run.put("batchId", finalBatchId);
@@ -266,13 +244,12 @@ public class ReconciliationController {
 
         runsCache.put(runId, run);
 
-        // Persist to TiDB Cloud
         persistRunToDatabase(runId, finalBatchId, result);
 
         return ResponseEntity.ok(run);
     }
 
-    @GetMapping("/reconciliation-runs/{runId}")
+    @GetMapping({"/reconciliation-runs/{runId}", "/api/reconciliation-runs/{runId}"})
     public ResponseEntity<Map<String, Object>> getRun(@PathVariable String runId) {
         if (runsCache.containsKey(runId)) {
             return ResponseEntity.ok(runsCache.get(runId));
@@ -283,7 +260,7 @@ public class ReconciliationController {
         return ResponseEntity.ok(createStarterRun());
     }
 
-    @GetMapping("/reconciliation-runs/{runId}/discrepancies")
+    @GetMapping({"/reconciliation-runs/{runId}/discrepancies", "/api/reconciliation-runs/{runId}/discrepancies"})
     public ResponseEntity<List<Map<String, Object>>> getDiscrepancies(@PathVariable String runId) {
         if (runDiscrepanciesCache.containsKey(runId)) {
             return ResponseEntity.ok(runDiscrepanciesCache.get(runId));
@@ -294,12 +271,12 @@ public class ReconciliationController {
         return ResponseEntity.ok(List.of());
     }
 
-    @GetMapping("/investigations")
+    @GetMapping({"/investigations", "/api/investigations"})
     public ResponseEntity<List<Map<String, Object>>> getInvestigations() {
         return ResponseEntity.ok(new ArrayList<>(investigationsCache));
     }
 
-    @PatchMapping("/investigations/{caseId}")
+    @PatchMapping({"/investigations/{caseId}", "/api/investigations/{caseId}"})
     public ResponseEntity<Map<String, Object>> updateInvestigation(@PathVariable String caseId, @RequestBody Map<String, Object> body) {
         synchronized (investigationsCache) {
             for (Map<String, Object> c : investigationsCache) {
@@ -315,7 +292,7 @@ public class ReconciliationController {
         return ResponseEntity.ok(res);
     }
 
-    @PostMapping("/investigations/{caseId}/notes")
+    @PostMapping({"/investigations/{caseId}/notes", "/api/investigations/{caseId}/notes"})
     public ResponseEntity<Map<String, Object>> addNote(@PathVariable String caseId, @RequestBody Map<String, Object> body) {
         Map<String, Object> note = new HashMap<>();
         note.put("id", "NOTE-" + System.currentTimeMillis());
@@ -337,12 +314,11 @@ public class ReconciliationController {
         return ResponseEntity.ok(note);
     }
 
-    @GetMapping("/audit-logs")
+    @GetMapping({"/audit-logs", "/api/audit-logs"})
     public ResponseEntity<List<Map<String, Object>>> getAuditLogs() {
         return ResponseEntity.ok(new ArrayList<>(auditLogsCache));
     }
 
-    // Database persistence helper
     private void persistRunToDatabase(String runId, String batchId, ReconciliationResult result) {
         if (dataSource == null) return;
         try (Connection conn = dataSource.getConnection();
@@ -366,7 +342,6 @@ public class ReconciliationController {
         }
     }
 
-    // Default real datasets for initial demo preview
     private List<OrderRecord> createDefaultOrders() {
         return List.of(
             new OrderRecord("ORD-9821", LocalDateTime.now(), "CUST-8812", new BigDecimal("250.00"), "USD", "COMPLETED"),
@@ -379,8 +354,7 @@ public class ReconciliationController {
 
     private List<PaymentTransaction> createDefaultPayments() {
         return List.of(
-            new PaymentTransaction("PAY-7712", "ORD-9821", LocalDateTime.now(), new BigDecimal("230.00"), new BigDecimal("4.60"), "Stripe", "CAPTURED"), // Mismatch
-            // ORD-9844 has no payment (Missing Payment)
+            new PaymentTransaction("PAY-7712", "ORD-9821", LocalDateTime.now(), new BigDecimal("230.00"), new BigDecimal("4.60"), "Stripe", "CAPTURED"),
             new PaymentTransaction("PAY-7790", "ORD-9850", LocalDateTime.now(), new BigDecimal("180.00"), new BigDecimal("3.60"), "Adyen", "CAPTURED"),
             new PaymentTransaction("PAY-7820", "ORD-9877", LocalDateTime.now(), new BigDecimal("95.00"), new BigDecimal("1.90"), "Stripe", "CAPTURED"),
             new PaymentTransaction("PAY-7855", "ORD-9890", LocalDateTime.now(), new BigDecimal("310.00"), new BigDecimal("6.20"), "Stripe", "CAPTURED")
@@ -390,7 +364,6 @@ public class ReconciliationController {
     private List<SettlementRecord> createDefaultSettlements() {
         return List.of(
             new SettlementRecord("SET-3310", "PAY-7712", LocalDateTime.now(), new BigDecimal("230.00"), new BigDecimal("225.40"), new BigDecimal("4.60"), "CITI-TXN-90214"),
-            // PAY-7790 has no settlement (Missing Settlement)
             new SettlementRecord("SET-3345", "PAY-7820", LocalDateTime.now(), new BigDecimal("95.00"), new BigDecimal("93.10"), new BigDecimal("1.90"), "CHASE-TXN-11029"),
             new SettlementRecord("SET-3419", "PAY-7855", LocalDateTime.now(), new BigDecimal("310.00"), new BigDecimal("303.80"), new BigDecimal("6.20"), "JPMC-TXN-44102")
         );

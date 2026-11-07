@@ -31,8 +31,21 @@ export const toggleMockMode = (): boolean => {
   return !current;
 };
 
+// Intelligently resolve the API base URL across Vercel, Render, and Localhost
+const getNormalizedBaseUrl = (): string => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (envUrl && envUrl.trim()) {
+    const trimmed = envUrl.trim().replace(/\/+$/, '');
+    return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+  }
+  if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
+    return 'https://paytrace-lj2l.onrender.com/api';
+  }
+  return 'http://localhost:10000/api';
+};
+
 const USE_MOCKS = isMockModeActive();
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:10000/api';
+const API_BASE_URL = getNormalizedBaseUrl();
 
 // Local storage keys for persisting state during demo
 const STORAGE_KEYS = {
@@ -49,17 +62,28 @@ class ApiClient {
   }
 
   public async checkHealth(): Promise<{ isLive: boolean; dbStatus: string; url: string }> {
-    try {
-      const resp = await fetch(`${API_BASE_URL}/health`, { signal: AbortSignal.timeout(5000) });
-      if (resp.ok) {
-        const data = await resp.json();
-        return {
-          isLive: true,
-          dbStatus: data?.database?.status || 'CONNECTED',
-          url: API_BASE_URL
-        };
-      }
-    } catch {}
+    const rootUrl = API_BASE_URL.replace(/\/api$/, '');
+    const candidateUrls = [
+      `${API_BASE_URL}/health`,
+      `${rootUrl}/health`,
+      `${API_BASE_URL}/`,
+      `${rootUrl}/`
+    ];
+
+    for (const u of candidateUrls) {
+      try {
+        const resp = await fetch(u, { signal: AbortSignal.timeout(4000) });
+        if (resp.ok) {
+          const data = await resp.json();
+          return {
+            isLive: true,
+            dbStatus: data?.database?.status || 'CONNECTED',
+            url: u
+          };
+        }
+      } catch {}
+    }
+
     return {
       isLive: false,
       dbStatus: 'OFFLINE',
@@ -72,7 +96,6 @@ class ApiClient {
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
-  // Load or initialize mock investigations from localStorage
   private getLocalInvestigations(): InvestigationCase[] {
     const stored = localStorage.getItem(STORAGE_KEYS.INVESTIGATIONS);
     if (stored) {
@@ -230,7 +253,9 @@ class ApiClient {
           body: JSON.stringify({ batchId, toleranceAmount: tolerance })
         });
         if (resp.ok) {
-          return await resp.json();
+          const run = await resp.json();
+          localStorage.setItem(STORAGE_KEYS.RUNS, JSON.stringify(run));
+          return run;
         }
       } catch (err) {
         console.warn('Backend reconciliation trigger unavailable, falling back to mock result:', err);
@@ -291,7 +316,11 @@ class ApiClient {
           headers: this.getAuthHeader()
         });
         if (resp.ok) {
-          return await resp.json();
+          const list = await resp.json();
+          if (Array.isArray(list) && list.length > 0) {
+            this.saveLocalInvestigations(list);
+            return list;
+          }
         }
       } catch (err) {
         console.warn('Backend investigations fetch unavailable, using local cache:', err);

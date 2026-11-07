@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping({"/auth", "/api/auth"})
 public class AuthController {
 
     @Value("${paytrace.jwt.secret:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}")
@@ -16,9 +16,12 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody Map<String, String> body) {
-        String email = body.getOrDefault("email", "analyst@paytrace.io");
-        String fullName = email.contains("@") ? email.split("@")[0] : "Analyst";
-        fullName = Character.toUpperCase(fullName.charAt(0)) + fullName.substring(1);
+        String email = body.getOrDefault("email", "sujith@paytrace.io");
+        String fullName = body.getOrDefault("fullName", "");
+        if (fullName.isEmpty()) {
+            fullName = email.contains("@") ? email.split("@")[0] : "Analyst";
+            fullName = Character.toUpperCase(fullName.charAt(0)) + fullName.substring(1);
+        }
         String role = email.toLowerCase().contains("admin") ? "ROLE_ADMIN" : "ROLE_ANALYST";
 
         String token = "paytrace_token_" + System.currentTimeMillis();
@@ -35,4 +38,3 @@ public class AuthController {
         return ResponseEntity.ok(new AuthResponse(token, user));
     }
 }
-

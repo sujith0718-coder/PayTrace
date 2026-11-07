@@ -16,12 +16,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * Production Security & CORS Configuration for Render Deployment.
- * - Stateless session architecture
- * - Whitelists localhost, Vercel frontend (https://frontend-woad-one-82.vercel.app), and Render domains
- * - Public access to health check, documentation, and authentication endpoints
- */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -36,12 +30,12 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/", "/api/", "/api/health", "/api/health/**").permitAll()
-                .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/api/imports/**").permitAll()
-                .requestMatchers("/api/reconciliation-runs/**").permitAll()
-                .requestMatchers("/api/investigations/**").permitAll()
-                .requestMatchers("/api/audit-logs/**").permitAll()
+                .requestMatchers("/", "/health", "/api", "/api/", "/api/health", "/api/health/**").permitAll()
+                .requestMatchers("/auth/**", "/api/auth/**").permitAll()
+                .requestMatchers("/imports/**", "/api/imports/**").permitAll()
+                .requestMatchers("/reconciliation-runs/**", "/api/reconciliation-runs/**").permitAll()
+                .requestMatchers("/investigations/**", "/api/investigations/**").permitAll()
+                .requestMatchers("/audit-logs/**", "/api/audit-logs/**").permitAll()
                 .requestMatchers("/error").permitAll()
                 .anyRequest().permitAll()
             );
