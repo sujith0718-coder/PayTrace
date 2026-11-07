@@ -49,40 +49,43 @@ export const ReconcileWorkspacePage: React.FC<ReconcileWorkspacePageProps> = ({ 
       `[START] Dispatched Batch #${activeRun?.batchId || 'BATCH-2026-11-001'} to Java Reconciliation Engine...`,
     ]);
 
-    // Simulated step-by-step progress with realistic trace logs
-    for (let i = 0; i < stages.length; i++) {
-      setCurrentStep(i);
-      await new Promise(r => setTimeout(r, 600));
-
-      if (i === 1) {
-        setLogs(prev => [
-          ...prev,
-          '[MATCH] 1,162 Orders verified with 1:1 Payment captures ($180,500.00)',
-          '[ALERT] Order #ORD-9844: No matching payment found in gateway stream.',
-        ]);
-      } else if (i === 2) {
-        setLogs(prev => [
-          ...prev,
-          '[MATCH] Bank settlements verified across Chase & Citi endpoints.',
-          '[ALERT] Payment #PAY-7790 ($180.00) missing bank settlement after 48h.',
-        ]);
-      } else if (i === 3) {
-        setLogs(prev => [
-          ...prev,
-          '[MATH] Tolerance threshold evaluated at $0.05.',
-          '[VARIANCE] Order #ORD-9821 amount mismatch detected: Expected $250.00, Captured $230.00.',
-        ]);
-      } else if (i === 4) {
-        setLogs(prev => [
-          ...prev,
-          '[CLASSIFY] Auto-generated 5 high-priority investigation cases.',
-          '[COMPLETE] Core engine finalized in 1,420ms. Overall Match Rate: 96.4%.',
-        ]);
-      }
-    }
-
     try {
-      await runReconciliation();
+      const result = await runReconciliation();
+
+      // Dynamic step-by-step progress with REAL metrics from Java Engine
+      for (let i = 0; i < stages.length; i++) {
+        setCurrentStep(i);
+        await new Promise(r => setTimeout(r, 450));
+
+        if (i === 1) {
+          setLogs(prev => [
+            ...prev,
+            `[MATCH] ${result.metrics.matchedRecords} Orders verified with 1:1 Payment captures ($${result.metrics.totalSettledValue})`,
+            result.metrics.discrepanciesCount > 0 
+              ? `[ALERT] ${result.metrics.discrepanciesCount} discrepancy cases flagged by algorithm.` 
+              : '[SUCCESS] Clean 1:1 match across all processed order records.'
+          ]);
+        } else if (i === 2) {
+          setLogs(prev => [
+            ...prev,
+            '[MATCH] Bank settlements cross-referenced across settlement records.',
+            `[STATUS] Verified records: ${result.metrics.matchedRecords} / ${result.metrics.totalRecords}`
+          ]);
+        } else if (i === 3) {
+          setLogs(prev => [
+            ...prev,
+            '[MATH] Mathematical precision evaluated with BigDecimal tolerance ($0.05).',
+            `[VARIANCE] Total detected financial variance: $${result.metrics.unreconciledVariance}`
+          ]);
+        } else if (i === 4) {
+          setLogs(prev => [
+            ...prev,
+            `[CLASSIFY] Auto-generated ${result.metrics.discrepanciesCount} investigation cases.`,
+            `[COMPLETE] Java Reconciliation Engine finalized. Overall Match Rate: ${result.metrics.reconciliationPercentage.toFixed(1)}%.`
+          ]);
+        }
+      }
+
       setIsRunning(false);
       setIsCompleted(true);
       playSuccess();

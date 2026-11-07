@@ -54,12 +54,33 @@ export const ImportDataPage: React.FC<ImportDataPageProps> = ({ onNavigate }) =>
     URL.revokeObjectURL(url);
   };
 
-  // 1-Click Demo File Pre-loader
+  // 1-Click Demo File Pre-loader with Real Valid CSV Rows
   const loadSyntheticDemoFiles = () => {
     playCardFlip();
-    const f1 = new File(['mock orders data'], 'orders_nov2026_prod.csv', { type: 'text/csv' });
-    const f2 = new File(['mock payments data'], 'stripe_adyen_payments.csv', { type: 'text/csv' });
-    const f3 = new File(['mock settlements data'], 'chase_citi_settlements.csv', { type: 'text/csv' });
+    const ordersCsv = `order_id,order_date,customer_id,order_amount,currency,order_status
+ORD-9821,2026-11-05,CUST-8812,250.00,USD,COMPLETED
+ORD-9844,2026-11-05,CUST-3319,420.00,USD,COMPLETED
+ORD-9850,2026-11-04,CUST-1044,180.00,USD,COMPLETED
+ORD-9877,2026-11-06,CUST-5512,95.00,USD,COMPLETED
+ORD-9890,2026-11-06,CUST-6623,310.00,USD,COMPLETED
+`;
+
+    const paymentsCsv = `payment_id,order_id,payment_date,payment_amount,fee_amount,payment_status,payment_method
+PAY-7712,ORD-9821,2026-11-05,230.00,4.60,CAPTURED,Stripe
+PAY-7790,ORD-9850,2026-11-04,180.00,3.60,CAPTURED,Adyen
+PAY-7820,ORD-9877,2026-11-06,95.00,1.90,CAPTURED,Stripe
+PAY-7855,ORD-9890,2026-11-06,310.00,6.20,CAPTURED,Stripe
+`;
+
+    const settlementsCsv = `settlement_id,payment_id,settlement_date,gross_amount,net_amount,settlement_fee,bank_reference
+SET-3310,PAY-7712,2026-11-06,230.00,225.40,4.60,CITI-TXN-90214
+SET-3345,PAY-7820,2026-11-06,95.00,93.10,1.90,CHASE-TXN-11029
+SET-3419,PAY-7855,2026-11-06,310.00,303.80,6.20,JPMC-TXN-44102
+`;
+
+    const f1 = new File([ordersCsv], 'orders_nov2026_prod.csv', { type: 'text/csv' });
+    const f2 = new File([paymentsCsv], 'stripe_adyen_payments.csv', { type: 'text/csv' });
+    const f3 = new File([settlementsCsv], 'chase_citi_settlements.csv', { type: 'text/csv' });
 
     setOrdersFile(f1);
     setPaymentsFile(f2);

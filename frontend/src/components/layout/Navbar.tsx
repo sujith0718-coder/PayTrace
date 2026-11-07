@@ -1,7 +1,8 @@
-import React from 'react';
-import { Menu, Search, Terminal } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Menu, Search, Database, CloudOff, RefreshCw } from 'lucide-react';
 import { AudioToggle } from './AudioToggle';
 import { useAuth } from '../../context/AuthContext';
+import { apiClient, isMockModeActive, toggleMockMode } from '../../services/apiClient';
 
 interface NavbarProps {
   onToggleMobileMenu: () => void;
@@ -13,6 +14,27 @@ export const Navbar: React.FC<NavbarProps> = ({
   currentPath,
 }) => {
   const { user } = useAuth();
+  const [isLive, setIsLive] = useState<boolean>(false);
+  const [checking, setChecking] = useState<boolean>(false);
+  const isMock = isMockModeActive();
+
+  const checkConnection = async () => {
+    setChecking(true);
+    try {
+      const res = await apiClient.checkHealth();
+      setIsLive(res.isLive);
+    } catch {
+      setIsLive(false);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  useEffect(() => {
+    checkConnection();
+    const interval = setInterval(checkConnection, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Generate clean breadcrumb labels
   const pathParts = currentPath.split('/').filter(Boolean);
@@ -41,11 +63,37 @@ export const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       <div className="flex items-center gap-3">
-        {/* Mock Data Engine Mode Indicator */}
-        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-[11px] font-mono text-slate-600">
-          <Terminal className="w-3.5 h-3.5 text-gold-600" />
-          <span>MOCK ENGINE READY</span>
-        </div>
+        {/* Dynamic Live Cloud / Mock Mode Toggle Badge */}
+        <button
+          onClick={toggleMockMode}
+          title={isMock ? "Currently in Demo Mock Mode. Click to switch to Live Backend!" : "Currently in Live Cloud Mode. Click to switch to Demo Mocks!"}
+          className={`hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full border text-[11px] font-mono transition-all cursor-pointer ${
+            !isMock && isLive
+              ? 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100'
+              : isMock
+              ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100'
+              : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          {!isMock && isLive ? (
+            <>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <Database className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="font-bold">LIVE: TiDB & Render</span>
+            </>
+          ) : isMock ? (
+            <>
+              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+              <CloudOff className="w-3.5 h-3.5 text-amber-600" />
+              <span>DEMO MOCKS (Click for Live)</span>
+            </>
+          ) : (
+            <>
+              <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${checking ? 'animate-spin' : ''}`} />
+              <span>CONNECTING CLOUD...</span>
+            </>
+          )}
+        </button>
 
         {/* Audio Toggle SFX button */}
         <AudioToggle />
@@ -68,4 +116,3 @@ export const Navbar: React.FC<NavbarProps> = ({
     </header>
   );
 };
-

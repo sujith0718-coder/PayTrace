@@ -16,7 +16,22 @@ import {
   MOCK_AUDIT_LOGS 
 } from './mockData';
 
-const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true';
+const FORCE_MOCKS_KEY = 'paytrace_force_mocks';
+
+export const isMockModeActive = (): boolean => {
+  const override = localStorage.getItem(FORCE_MOCKS_KEY);
+  if (override !== null) return override === 'true';
+  return import.meta.env.VITE_USE_MOCKS === 'true';
+};
+
+export const toggleMockMode = (): boolean => {
+  const current = isMockModeActive();
+  localStorage.setItem(FORCE_MOCKS_KEY, String(!current));
+  window.location.reload();
+  return !current;
+};
+
+const USE_MOCKS = isMockModeActive();
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:10000/api';
 
 // Local storage keys for persisting state during demo
@@ -29,6 +44,29 @@ const STORAGE_KEYS = {
 };
 
 class ApiClient {
+  public getBaseUrl(): string {
+    return API_BASE_URL;
+  }
+
+  public async checkHealth(): Promise<{ isLive: boolean; dbStatus: string; url: string }> {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/health`, { signal: AbortSignal.timeout(5000) });
+      if (resp.ok) {
+        const data = await resp.json();
+        return {
+          isLive: true,
+          dbStatus: data?.database?.status || 'CONNECTED',
+          url: API_BASE_URL
+        };
+      }
+    } catch {}
+    return {
+      isLive: false,
+      dbStatus: 'OFFLINE',
+      url: API_BASE_URL
+    };
+  }
+
   private getAuthHeader(): Record<string, string> {
     const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
     return token ? { Authorization: `Bearer ${token}` } : {};
