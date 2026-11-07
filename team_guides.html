@@ -180,25 +180,25 @@
       <td><strong>Thurika G</strong></td>
       <td>Domain Architect</td>
       <td><code>feature/java-data-models</code></td>
-      <td>OOP class hierarchy, encapsulation, <code>BaseFinancialRecord</code>, <code>OrderRecord</code>, <code>PaymentTransaction</code>, <code>SettlementRecord</code>, <code>BigDecimal</code> precision</td>
+      <td>Folder: <code>com.paytrace.thurika_models</code><br>OOP models: <code>BaseFinancialRecord</code>, <code>OrderRecord</code>, <code>PaymentTransaction</code>, <code>SettlementRecord</code>, <code>Discrepancy</code></td>
     </tr>
     <tr>
       <td><strong>Sujith E</strong></td>
       <td>Core Systems Engineer</td>
       <td><code>feature/reconciliation-engine</code></td>
-      <td><code>ReconciliationEngine</code>, $O(N)$ HashMap matching, tolerance checks ($\pm\$0.05$), duplicate detection, variance calculations</td>
+      <td>Folder: <code>com.paytrace.sujith_engine</code><br><code>ReconciliationEngine</code>, $O(N)$ HashMap matching, tolerance checks ($\pm\$0.05$), duplicate detection</td>
     </tr>
     <tr>
       <td><strong>Tharun J</strong></td>
       <td>Ingestion Specialist</td>
       <td><code>feature/csv-import</code></td>
-      <td><code>CsvImportService</code>, OpenCSV line tokenization, schema headers, non-blocking error handling, <code>CsvValidationResult</code></td>
+      <td>Folder: <code>com.paytrace.tharun_ingestion</code><br><code>CsvImportService</code>, OpenCSV line tokenization, schema headers, <code>CsvValidationResult</code></td>
     </tr>
     <tr>
       <td><strong>Mithunasri J</strong></td>
       <td>QA & Workflow Engineer</td>
       <td><code>feature/investigation-testing</code></td>
-      <td><code>InvestigationCase</code> state machine (OPEN &rarr; UNDER_REVIEW &rarr; RESOLVED), mandatory audit notes, complete JUnit 5 test suite</td>
+      <td>Folder: <code>com.paytrace.mithunasri_workflow</code><br><code>InvestigationCase</code> state machine (OPEN &rarr; UNDER_REVIEW &rarr; RESOLVED), JUnit 5 tests</td>
     </tr>
   </tbody>
 </table>
@@ -217,7 +217,7 @@
 <div class="meta-box">
   <p><strong>Primary Role:</strong> Java OOP & Data Models</p>
   <p><strong>Git Branch:</strong> <code>feature/java-data-models</code></p>
-  <p><strong>Target Package:</strong> <code>com.paytrace.model</code> (in <code>backend/src/main/java/com/paytrace/model/</code>)</p>
+  <p><strong>Your Dedicated Folder:</strong> <code>backend/src/main/java/com/paytrace/thurika_models/</code></p>
 </div>
 
 <h3>1. Your Objective</h3>
@@ -431,7 +431,7 @@ git push origin feature/java-data-models</pre>
 <div class="meta-box">
   <p><strong>Primary Role:</strong> Reconciliation Algorithm & Discrepancy Engine</p>
   <p><strong>Git Branch:</strong> <code>feature/reconciliation-engine</code></p>
-  <p><strong>Target Package:</strong> <code>com.paytrace.service</code> (in <code>backend/src/main/java/com/paytrace/service/</code>)</p>
+  <p><strong>Your Dedicated Folder:</strong> <code>backend/src/main/java/com/paytrace/sujith_engine/</code></p>
 </div>
 
 <h3>1. Your Objective</h3>
@@ -607,7 +607,7 @@ git push origin feature/reconciliation-engine</pre>
 <div class="meta-box">
   <p><strong>Primary Role:</strong> CSV Ingestion, Parsing & Non-blocking Validation</p>
   <p><strong>Git Branch:</strong> <code>feature/csv-import</code></p>
-  <p><strong>Target Package:</strong> <code>com.paytrace.ingestion</code> (in <code>backend/src/main/java/com/paytrace/ingestion/</code>)</p>
+  <p><strong>Your Dedicated Folder:</strong> <code>backend/src/main/java/com/paytrace/tharun_ingestion/</code></p>
 </div>
 
 <h3>1. Your Objective</h3>
@@ -771,7 +771,7 @@ git push origin feature/csv-import</pre>
 <div class="meta-box">
   <p><strong>Primary Role:</strong> Investigation State Machine & JUnit 5 Testing Suite</p>
   <p><strong>Git Branch:</strong> <code>feature/investigation-testing</code></p>
-  <p><strong>Target Packages:</strong> <code>com.paytrace.workflow</code> & <code>com.paytrace</code> (tests)</p>
+  <p><strong>Your Dedicated Folders:</strong> <code>backend/src/main/java/com/paytrace/mithunasri_workflow/</code> & <code>backend/src/test/java/com/paytrace/mithunasri_tests/</code></p>
 </div>
 
 <h3>1. Your Objective</h3>
@@ -955,3 +955,4 @@ git push origin feature/investigation-testing</pre>
 
 </body>
 </html>
+

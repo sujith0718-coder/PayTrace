@@ -40,14 +40,18 @@ It detects amount shortfalls, delayed bank settlements, missing transactions, an
 
 ---
 
-## 2. Team Structure & Java Responsibilities
+## 2. Team Structure & Dedicated Named Workspaces
 
-| Member | Project Role | Java Engineering Ownership |
-| :--- | :--- | :--- |
-| **Thurika G** | Domain Architect | Domain models, inheritance, encapsulation, record entities |
-| **Sujith E** | Core Systems Engineer | 3-way matching algorithm, HashMap indexing ($O(N)$ efficiency) |
-| **Tharun J** | Ingestion Specialist | CSV reader, OpenCSV tokenization, syntax validation |
-| **Mithunasri J** | QA & Workflow Engineer | Investigation lifecycle state machine, JUnit 5 test suites |
+Every teammate has a **dedicated, personalized workspace folder** in `backend/src/main/java/com/paytrace/` with starter templates and `// TODO` guidance so you don't have to search for files:
+
+| Member | Workspace Package Folder | Git Branch | Main Assignment |
+| :--- | :--- | :--- | :--- |
+| **Thurika G** | [`com.paytrace.thurika_models`](backend/src/main/java/com/paytrace/thurika_models/) | `feature/java-data-models` | OOP Domain Models (`BaseFinancialRecord`, `OrderRecord`, etc.) |
+| **Sujith E** | [`com.paytrace.sujith_engine`](backend/src/main/java/com/paytrace/sujith_engine/) | `feature/reconciliation-engine` | 3-Way Matching Engine & $O(N)$ HashMaps |
+| **Tharun J** | [`com.paytrace.tharun_ingestion`](backend/src/main/java/com/paytrace/tharun_ingestion/) | `feature/csv-import` | CSV Ingestion & Non-blocking Validation |
+| **Mithunasri J** | [`com.paytrace.mithunasri_workflow`](backend/src/main/java/com/paytrace/mithunasri_workflow/) | `feature/investigation-testing` | Investigation State Machine & JUnit 5 Tests |
+
+👉 See the complete interactive navigator in [**TEAM_WORKSPACE_MAP.md**](TEAM_WORKSPACE_MAP.md) and download the [**PayTrace_Team_Beginner_Guides.pdf**](PayTrace_Team_Beginner_Guides.pdf).
 
 ---
 
