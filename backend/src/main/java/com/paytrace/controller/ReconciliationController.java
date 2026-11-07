@@ -21,7 +21,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Production Reconciliation Controller.
- * Maps endpoints to both /... and /api/... for flexible client consumption.
+ * Connects real CSV ingestion, 3-way matching engine, and TiDB Cloud database persistence.
+ * Dual-mapped to /... and /api/... for flexible client consumption.
  */
 @RestController
 public class ReconciliationController {
@@ -46,6 +47,46 @@ public class ReconciliationController {
             try (Connection conn = dataSource.getConnection();
                  Statement stmt = conn.createStatement()) {
 
+                // Source Ingestion Tables
+                stmt.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS orders (
+                        order_id VARCHAR(64) PRIMARY KEY,
+                        batch_id VARCHAR(64),
+                        customer_id VARCHAR(64),
+                        amount DECIMAL(15,2),
+                        currency VARCHAR(16),
+                        status VARCHAR(32),
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """);
+
+                stmt.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS payments (
+                        payment_id VARCHAR(64) PRIMARY KEY,
+                        batch_id VARCHAR(64),
+                        order_id VARCHAR(64),
+                        amount DECIMAL(15,2),
+                        fee DECIMAL(15,2),
+                        gateway VARCHAR(64),
+                        status VARCHAR(32),
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """);
+
+                stmt.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS settlements (
+                        settlement_id VARCHAR(64) PRIMARY KEY,
+                        batch_id VARCHAR(64),
+                        payment_id VARCHAR(64),
+                        gross_amount DECIMAL(15,2),
+                        net_amount DECIMAL(15,2),
+                        fee DECIMAL(15,2),
+                        bank_reference VARCHAR(128),
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """);
+
+                // Reconciliation Engine Tables
                 stmt.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS reconciliation_runs (
                         run_id VARCHAR(64) PRIMARY KEY,
@@ -79,25 +120,55 @@ public class ReconciliationController {
                 stmt.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS investigations (
                         id VARCHAR(64) PRIMARY KEY,
+                        case_number VARCHAR(64),
                         discrepancy_id VARCHAR(64),
-                        order_id VARCHAR(64),
+                        run_id VARCHAR(64),
+                        discrepancy_type VARCHAR(64),
+                        severity VARCHAR(32),
                         status VARCHAR(32),
-                        priority VARCHAR(32),
                         variance_amount VARCHAR(32),
+                        assigned_analyst VARCHAR(64),
+                        assigned_analyst_email VARCHAR(128),
                         assigned_to VARCHAR(64),
                         resolution_category VARCHAR(64),
                         resolution_note TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """);
+
+                stmt.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS investigation_notes (
+                        id VARCHAR(64) PRIMARY KEY,
+                        investigation_id VARCHAR(64),
+                        author VARCHAR(64),
+                        author_role VARCHAR(64),
+                        text TEXT,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """);
 
+                // Seamlessly ensure any legacy columns exist without error
+                safeAddColumn(stmt, "investigations", "case_number", "VARCHAR(64)");
+                safeAddColumn(stmt, "investigations", "discrepancy_type", "VARCHAR(64)");
+                safeAddColumn(stmt, "investigations", "assigned_analyst", "VARCHAR(64)");
+                safeAddColumn(stmt, "investigations", "assigned_analyst_email", "VARCHAR(128)");
+                safeAddColumn(stmt, "investigations", "run_id", "VARCHAR(64)");
+                safeAddColumn(stmt, "investigations", "updated_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+
                 System.out.println("PayTrace database tables verified and initialized in TiDB Cloud!");
             } catch (Exception e) {
-                System.err.println("Could not auto-create tables: " + e.getMessage());
+                System.err.println("Database table initialization check: " + e.getMessage());
             }
         }
 
         initStarterData();
+    }
+
+    private void safeAddColumn(Statement stmt, String table, String column, String colType) {
+        try {
+            stmt.executeUpdate("ALTER TABLE " + table + " ADD COLUMN " + column + " " + colType);
+        } catch (Exception ignored) {}
     }
 
     @PostMapping({"/imports/upload", "/api/imports/upload"})
@@ -135,13 +206,20 @@ public class ReconciliationController {
 
         if (orders.isEmpty()) {
             orders = createDefaultOrders();
+        }
+        if (payments.isEmpty()) {
             payments = createDefaultPayments();
+        }
+        if (settlements.isEmpty()) {
             settlements = createDefaultSettlements();
         }
 
         batchOrders.put(batchId, orders);
         batchPayments.put(batchId, payments);
         batchSettlements.put(batchId, settlements);
+
+        // Permanently persist parsed CSV records into TiDB Cloud
+        persistUploadedFilesToTiDB(batchId, orders, payments, settlements);
 
         Map<String, Object> resp = new HashMap<>();
         resp.put("batchId", batchId);
@@ -156,6 +234,70 @@ public class ReconciliationController {
         resp.put("warnings", warnings);
 
         return ResponseEntity.ok(resp);
+    }
+
+    private void persistUploadedFilesToTiDB(String batchId, List<OrderRecord> orders, List<PaymentTransaction> payments, List<SettlementRecord> settlements) {
+        if (dataSource == null) return;
+        try (Connection conn = dataSource.getConnection()) {
+            // Save Orders
+            try (PreparedStatement ps = conn.prepareStatement("""
+                INSERT INTO orders (order_id, batch_id, customer_id, amount, currency, status)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE amount=VALUES(amount), status=VALUES(status)
+            """)) {
+                for (OrderRecord o : orders) {
+                    ps.setString(1, o.getRecordId());
+                    ps.setString(2, batchId);
+                    ps.setString(3, o.getCustomerId());
+                    ps.setBigDecimal(4, o.getAmount());
+                    ps.setString(5, o.getCurrency());
+                    ps.setString(6, o.getOrderStatus());
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+            }
+
+            // Save Payments
+            try (PreparedStatement ps = conn.prepareStatement("""
+                INSERT INTO payments (payment_id, batch_id, order_id, amount, fee, gateway, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE amount=VALUES(amount), fee=VALUES(fee), status=VALUES(status)
+            """)) {
+                for (PaymentTransaction p : payments) {
+                    ps.setString(1, p.getRecordId());
+                    ps.setString(2, batchId);
+                    ps.setString(3, p.getOrderId());
+                    ps.setBigDecimal(4, p.getAmount());
+                    ps.setBigDecimal(5, p.getFeeAmount());
+                    ps.setString(6, p.getGatewayName());
+                    ps.setString(7, p.getStatus());
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+            }
+
+            // Save Settlements
+            try (PreparedStatement ps = conn.prepareStatement("""
+                INSERT INTO settlements (settlement_id, batch_id, payment_id, gross_amount, net_amount, fee, bank_reference)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE gross_amount=VALUES(gross_amount), net_amount=VALUES(net_amount)
+            """)) {
+                for (SettlementRecord s : settlements) {
+                    ps.setString(1, s.getRecordId());
+                    ps.setString(2, batchId);
+                    ps.setString(3, s.getPaymentId());
+                    ps.setBigDecimal(4, s.getGrossAmount());
+                    ps.setBigDecimal(5, s.getNetAmount());
+                    ps.setBigDecimal(6, s.getBankFee());
+                    ps.setString(7, s.getBankReference());
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+            }
+            System.out.println("Uploaded CSV files successfully persisted to TiDB Cloud for batch: " + batchId);
+        } catch (Exception e) {
+            System.err.println("Could not persist CSV records to TiDB: " + e.getMessage());
+        }
     }
 
     @PostMapping({"/reconciliation-runs", "/api/reconciliation-runs"})
@@ -192,12 +334,18 @@ public class ReconciliationController {
         String finalBatchId = batchId != null ? batchId : "BATCH-101";
 
         List<Map<String, Object>> discrepancyMaps = new ArrayList<>();
+        List<Map<String, Object>> newInvestigations = new ArrayList<>();
+        int invIndex = 101;
+
         for (Discrepancy d : result.getDiscrepancies()) {
+            String severity = d.getVariance().compareTo(new BigDecimal("100")) > 0 ? "HIGH" : "MEDIUM";
+            String caseNum = "INV-2026-" + (invIndex++);
+
             Map<String, Object> map = new HashMap<>();
             map.put("id", d.getId());
             map.put("runId", runId);
             map.put("type", d.getType().name());
-            map.put("severity", d.getVariance().compareTo(new BigDecimal("100")) > 0 ? "HIGH" : "MEDIUM");
+            map.put("severity", severity);
             map.put("orderId", d.getOrderId());
             map.put("explanation", d.getExplanation());
             map.put("expectedAmount", d.getExpectedAmount().toPlainString());
@@ -208,15 +356,23 @@ public class ReconciliationController {
 
             Map<String, Object> inv = new HashMap<>();
             inv.put("id", "INV-" + d.getId());
+            inv.put("caseNumber", caseNum);
             inv.put("discrepancyId", d.getId());
-            inv.put("orderId", d.getOrderId());
+            inv.put("runId", runId);
+            inv.put("discrepancyType", d.getType().name());
+            inv.put("severity", severity);
             inv.put("status", "OPEN");
-            inv.put("priority", map.get("severity"));
+            inv.put("priority", severity);
             inv.put("varianceAmount", d.getVariance().toPlainString());
+            inv.put("assignedAnalyst", "Sujith E");
+            inv.put("assignedAnalystEmail", "sujith@paytrace.fin");
             inv.put("assignedTo", "Sujith E");
             inv.put("createdAt", Instant.now().toString());
+            inv.put("updatedAt", Instant.now().toString());
             inv.put("discrepancy", map);
             inv.put("notes", new ArrayList<>());
+
+            newInvestigations.add(inv);
             investigationsCache.add(0, inv);
         }
 
@@ -244,7 +400,8 @@ public class ReconciliationController {
 
         runsCache.put(runId, run);
 
-        persistRunToDatabase(runId, finalBatchId, result);
+        // Persist Run, Discrepancies, and Investigations to TiDB Cloud
+        persistFullRunToDatabase(runId, finalBatchId, result, discrepancyMaps, newInvestigations);
 
         return ResponseEntity.ok(run);
     }
@@ -278,39 +435,88 @@ public class ReconciliationController {
 
     @PatchMapping({"/investigations/{caseId}", "/api/investigations/{caseId}"})
     public ResponseEntity<Map<String, Object>> updateInvestigation(@PathVariable String caseId, @RequestBody Map<String, Object> body) {
+        Map<String, Object> target = null;
         synchronized (investigationsCache) {
             for (Map<String, Object> c : investigationsCache) {
-                if (caseId.equals(c.get("id"))) {
+                if (caseId.equals(c.get("id")) || caseId.equals(c.get("caseNumber"))) {
                     c.putAll(body);
                     c.put("updatedAt", Instant.now().toString());
-                    return ResponseEntity.ok(c);
+                    target = c;
+                    break;
                 }
             }
         }
-        Map<String, Object> res = new HashMap<>(body);
-        res.put("id", caseId);
-        return ResponseEntity.ok(res);
+
+        // Persist update in TiDB Cloud
+        if (dataSource != null) {
+            try (Connection conn = dataSource.getConnection();
+                 PreparedStatement ps = conn.prepareStatement("""
+                     UPDATE investigations 
+                     SET status = COALESCE(?, status), 
+                         resolution_category = COALESCE(?, resolution_category),
+                         resolution_note = COALESCE(?, resolution_note),
+                         updated_at = CURRENT_TIMESTAMP
+                     WHERE id = ? OR case_number = ?
+                 """)) {
+                ps.setString(1, body.containsKey("status") ? body.get("status").toString() : null);
+                ps.setString(2, body.containsKey("resolutionCategory") ? body.get("resolutionCategory").toString() : null);
+                ps.setString(3, body.containsKey("resolutionReason") || body.containsKey("note") 
+                        ? (body.containsKey("resolutionReason") ? body.get("resolutionReason").toString() : body.get("note").toString())
+                        : null);
+                ps.setString(4, caseId);
+                ps.setString(5, caseId);
+                ps.executeUpdate();
+            } catch (Exception e) {
+                System.err.println("Could not update investigation in TiDB: " + e.getMessage());
+            }
+        }
+
+        return ResponseEntity.ok(target != null ? target : body);
     }
 
     @PostMapping({"/investigations/{caseId}/notes", "/api/investigations/{caseId}/notes"})
     public ResponseEntity<Map<String, Object>> addNote(@PathVariable String caseId, @RequestBody Map<String, Object> body) {
+        String noteId = "NOTE-" + System.currentTimeMillis();
+        String author = "Sujith E";
+        String authorRole = "Analyst";
+        String text = body.get("text") != null ? body.get("text").toString() : "";
+
         Map<String, Object> note = new HashMap<>();
-        note.put("id", "NOTE-" + System.currentTimeMillis());
-        note.put("author", "Sujith E");
-        note.put("authorRole", "Analyst");
+        note.put("id", noteId);
+        note.put("author", author);
+        note.put("authorRole", authorRole);
         note.put("timestamp", Instant.now().toString());
-        note.put("text", body.get("text"));
+        note.put("text", text);
 
         synchronized (investigationsCache) {
             for (Map<String, Object> c : investigationsCache) {
-                if (caseId.equals(c.get("id"))) {
+                if (caseId.equals(c.get("id")) || caseId.equals(c.get("caseNumber"))) {
                     @SuppressWarnings("unchecked")
                     List<Map<String, Object>> notes = (List<Map<String, Object>>) c.computeIfAbsent("notes", k -> new ArrayList<>());
                     notes.add(note);
-                    return ResponseEntity.ok(c);
+                    break;
                 }
             }
         }
+
+        // Persist note to TiDB
+        if (dataSource != null) {
+            try (Connection conn = dataSource.getConnection();
+                 PreparedStatement ps = conn.prepareStatement("""
+                     INSERT INTO investigation_notes (id, investigation_id, author, author_role, text)
+                     VALUES (?, ?, ?, ?, ?)
+                 """)) {
+                ps.setString(1, noteId);
+                ps.setString(2, caseId);
+                ps.setString(3, author);
+                ps.setString(4, authorRole);
+                ps.setString(5, text);
+                ps.executeUpdate();
+            } catch (Exception e) {
+                System.err.println("Could not persist note to TiDB: " + e.getMessage());
+            }
+        }
+
         return ResponseEntity.ok(note);
     }
 
@@ -319,24 +525,76 @@ public class ReconciliationController {
         return ResponseEntity.ok(new ArrayList<>(auditLogsCache));
     }
 
-    private void persistRunToDatabase(String runId, String batchId, ReconciliationResult result) {
+    private void persistFullRunToDatabase(
+            String runId,
+            String batchId,
+            ReconciliationResult result,
+            List<Map<String, Object>> discrepancies,
+            List<Map<String, Object>> investigations
+    ) {
         if (dataSource == null) return;
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement("""
-                 INSERT INTO reconciliation_runs (run_id, batch_id, status, total_records, matched_records, discrepancies_count, match_percentage, total_order_value, total_settled_value)
-                 VALUES (?, ?, 'COMPLETED', ?, ?, ?, ?, ?, ?)
-                 ON DUPLICATE KEY UPDATE status='COMPLETED'
-             """)) {
-            ps.setString(1, runId);
-            ps.setString(2, batchId);
-            ps.setInt(3, result.getTotalRecords());
-            ps.setInt(4, result.getMatchedRecords());
-            ps.setInt(5, result.getDiscrepanciesCount());
-            ps.setDouble(6, result.getReconciliationPercentage());
-            ps.setBigDecimal(7, result.getTotalOrderValue());
-            ps.setBigDecimal(8, result.getTotalSettledValue());
-            ps.executeUpdate();
-            System.out.println("Reconciliation Run " + runId + " successfully persisted to TiDB Cloud!");
+        try (Connection conn = dataSource.getConnection()) {
+            // 1. Persist Run
+            try (PreparedStatement ps = conn.prepareStatement("""
+                INSERT INTO reconciliation_runs (run_id, batch_id, status, total_records, matched_records, discrepancies_count, match_percentage, total_order_value, total_settled_value)
+                VALUES (?, ?, 'COMPLETED', ?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE status='COMPLETED'
+            """)) {
+                ps.setString(1, runId);
+                ps.setString(2, batchId);
+                ps.setInt(3, result.getTotalRecords());
+                ps.setInt(4, result.getMatchedRecords());
+                ps.setInt(5, result.getDiscrepanciesCount());
+                ps.setDouble(6, result.getReconciliationPercentage());
+                ps.setBigDecimal(7, result.getTotalOrderValue());
+                ps.setBigDecimal(8, result.getTotalSettledValue());
+                ps.executeUpdate();
+            }
+
+            // 2. Persist Discrepancies
+            try (PreparedStatement ps = conn.prepareStatement("""
+                INSERT INTO discrepancies (id, run_id, type, severity, order_id, explanation, expected_amount, actual_amount, variance)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE explanation=VALUES(explanation)
+            """)) {
+                for (Map<String, Object> d : discrepancies) {
+                    ps.setString(1, d.get("id").toString());
+                    ps.setString(2, runId);
+                    ps.setString(3, d.get("type").toString());
+                    ps.setString(4, d.get("severity").toString());
+                    ps.setString(5, d.get("orderId").toString());
+                    ps.setString(6, d.get("explanation").toString());
+                    ps.setBigDecimal(7, new BigDecimal(d.get("expectedAmount").toString()));
+                    ps.setBigDecimal(8, new BigDecimal(d.get("actualAmount").toString()));
+                    ps.setBigDecimal(9, new BigDecimal(d.get("variance").toString()));
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+            }
+
+            // 3. Persist Investigations
+            try (PreparedStatement ps = conn.prepareStatement("""
+                INSERT INTO investigations (id, case_number, discrepancy_id, run_id, discrepancy_type, severity, status, variance_amount, assigned_analyst, assigned_analyst_email, assigned_to)
+                VALUES (?, ?, ?, ?, ?, ?, 'OPEN', ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE status=VALUES(status)
+            """)) {
+                for (Map<String, Object> inv : investigations) {
+                    ps.setString(1, inv.get("id").toString());
+                    ps.setString(2, inv.get("caseNumber").toString());
+                    ps.setString(3, inv.get("discrepancyId").toString());
+                    ps.setString(4, runId);
+                    ps.setString(5, inv.get("discrepancyType").toString());
+                    ps.setString(6, inv.get("severity").toString());
+                    ps.setString(7, inv.get("varianceAmount").toString());
+                    ps.setString(8, inv.get("assignedAnalyst").toString());
+                    ps.setString(9, inv.get("assignedAnalystEmail").toString());
+                    ps.setString(10, inv.get("assignedTo").toString());
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+            }
+
+            System.out.println("Reconciliation Run " + runId + ", discrepancies, and investigation cases successfully persisted to TiDB Cloud!");
         } catch (Exception e) {
             System.err.println("Could not persist run to TiDB: " + e.getMessage());
         }
@@ -379,12 +637,17 @@ public class ReconciliationController {
 
         String runId = "RUN-2026-901";
         List<Map<String, Object>> discrepancyMaps = new ArrayList<>();
+        int invIndex = 1;
+
         for (Discrepancy d : result.getDiscrepancies()) {
+            String severity = d.getVariance().compareTo(new BigDecimal("100")) > 0 ? "HIGH" : "MEDIUM";
+            String caseNum = "INV-2026-" + String.format("%03d", invIndex++);
+
             Map<String, Object> map = new HashMap<>();
             map.put("id", d.getId());
             map.put("runId", runId);
             map.put("type", d.getType().name());
-            map.put("severity", d.getVariance().compareTo(new BigDecimal("100")) > 0 ? "HIGH" : "MEDIUM");
+            map.put("severity", severity);
             map.put("orderId", d.getOrderId());
             map.put("explanation", d.getExplanation());
             map.put("expectedAmount", d.getExpectedAmount().toPlainString());
@@ -395,13 +658,19 @@ public class ReconciliationController {
 
             Map<String, Object> inv = new HashMap<>();
             inv.put("id", "INV-" + d.getId());
+            inv.put("caseNumber", caseNum);
             inv.put("discrepancyId", d.getId());
-            inv.put("orderId", d.getOrderId());
+            inv.put("runId", runId);
+            inv.put("discrepancyType", d.getType().name());
+            inv.put("severity", severity);
             inv.put("status", "OPEN");
-            inv.put("priority", map.get("severity"));
+            inv.put("priority", severity);
             inv.put("varianceAmount", d.getVariance().toPlainString());
+            inv.put("assignedAnalyst", "Sujith E");
+            inv.put("assignedAnalystEmail", "sujith@paytrace.fin");
             inv.put("assignedTo", "Sujith E");
             inv.put("createdAt", Instant.now().toString());
+            inv.put("updatedAt", Instant.now().toString());
             inv.put("discrepancy", map);
             inv.put("notes", new ArrayList<>());
             investigationsCache.add(inv);

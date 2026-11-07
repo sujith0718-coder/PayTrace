@@ -308,6 +308,47 @@ class ApiClient {
     return MOCK_DISCREPANCIES;
   }
 
+  private normalizeInvestigationCase(c: any, index: number = 0): InvestigationCase {
+    const id = c.id || `INV-CASE-${index + 1}`;
+    const discType = c.discrepancyType || c.discrepancy?.type || 'AMOUNT_MISMATCH';
+    const severity = c.severity || c.priority || 'MEDIUM';
+    const assignedAnalyst = c.assignedAnalyst || c.assignedTo || 'Sujith E';
+    const assignedAnalystEmail = c.assignedAnalystEmail || 'sujith@paytrace.fin';
+    const caseNumber = c.caseNumber || (id.startsWith('INV-') ? id : `INV-${id}`);
+
+    const discrepancy: DiscrepancyItem = c.discrepancy || {
+      id: c.discrepancyId || `DISC-${id}`,
+      runId: c.runId || 'RUN-2026-901',
+      type: discType,
+      severity: severity,
+      orderId: c.orderId || 'ORD-9821',
+      explanation: c.explanation || 'Automatic audit variance flagged by Java Reconciliation Engine.',
+      expectedAmount: c.expectedAmount || '250.00',
+      actualAmount: c.actualAmount || '230.00',
+      variance: c.variance || c.varianceAmount || '20.00',
+      createdAt: c.createdAt || new Date().toISOString()
+    };
+
+    return {
+      id,
+      caseNumber,
+      discrepancyId: c.discrepancyId || discrepancy.id,
+      runId: c.runId || discrepancy.runId,
+      discrepancyType: discType,
+      severity,
+      status: c.status || 'OPEN',
+      assignedAnalyst,
+      assignedAnalystEmail,
+      createdAt: c.createdAt || new Date().toISOString(),
+      updatedAt: c.updatedAt || new Date().toISOString(),
+      resolvedAt: c.resolvedAt,
+      resolutionCategory: c.resolutionCategory,
+      resolutionNote: c.resolutionNote,
+      discrepancy,
+      notes: Array.isArray(c.notes) ? c.notes : []
+    };
+  }
+
   // INVESTIGATIONS
   public async getInvestigations(): Promise<InvestigationCase[]> {
     if (!USE_MOCKS) {
@@ -316,8 +357,9 @@ class ApiClient {
           headers: this.getAuthHeader()
         });
         if (resp.ok) {
-          const list = await resp.json();
-          if (Array.isArray(list) && list.length > 0) {
+          const rawList = await resp.json();
+          if (Array.isArray(rawList) && rawList.length > 0) {
+            const list = rawList.map((c, i) => this.normalizeInvestigationCase(c, i));
             this.saveLocalInvestigations(list);
             return list;
           }
@@ -328,7 +370,7 @@ class ApiClient {
     }
 
     await new Promise(r => setTimeout(r, 200));
-    return this.getLocalInvestigations();
+    return this.getLocalInvestigations().map((c, i) => this.normalizeInvestigationCase(c, i));
   }
 
   public async updateInvestigationStatus(

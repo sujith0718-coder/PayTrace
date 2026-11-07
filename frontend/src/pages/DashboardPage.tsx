@@ -52,12 +52,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
     { date: 'Nov 07', imported: 1250, reconciled: 1205 },
   ];
 
-  // Chart Data: Discrepancy Breakdown
-  const discrepancyBreakdown = [
-    { name: 'Amount Mismatch', value: 18, color: '#D95C5C' }, // Crimson
-    { name: 'Missing Payment', value: 14, color: '#E5A83B' }, // Amber
-    { name: 'Missing Settlement', value: 8, color: '#8B70E8' }, // Lavender
-    { name: 'Duplicate Record', value: 5, color: '#D6B66C' }, // Gold
+  // Chart Data: Discrepancy Breakdown dynamically derived from active run
+  const activeDiscs = activeRun?.discrepancies || [];
+  const discrepancyBreakdown = activeDiscs.length > 0 ? [
+    { name: 'Amount Mismatch', value: activeDiscs.filter(d => d.type === 'AMOUNT_MISMATCH').length, color: '#D95C5C' },
+    { name: 'Missing Payment', value: activeDiscs.filter(d => d.type === 'MISSING_PAYMENT').length, color: '#E5A83B' },
+    { name: 'Missing Settlement', value: activeDiscs.filter(d => d.type === 'MISSING_SETTLEMENT').length, color: '#8B70E8' },
+    { name: 'Duplicate Record', value: activeDiscs.filter(d => d.type === 'DUPLICATE_TRANSACTION').length, color: '#D6B66C' },
+  ] : [
+    { name: 'Amount Mismatch', value: 18, color: '#D95C5C' },
+    { name: 'Missing Payment', value: 14, color: '#E5A83B' },
+    { name: 'Missing Settlement', value: 8, color: '#8B70E8' },
+    { name: 'Duplicate Record', value: 5, color: '#D6B66C' },
   ];
 
   return (

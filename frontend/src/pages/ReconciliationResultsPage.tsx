@@ -27,11 +27,11 @@ export const ReconciliationResultsPage: React.FC<ReconciliationResultsPageProps>
   const discrepancies = activeRun?.discrepancies || [];
 
   const filterCounts = {
-    ALL: 45,
-    AMOUNT_MISMATCH: 18,
-    MISSING_PAYMENT: 14,
-    MISSING_SETTLEMENT: 8,
-    DUPLICATE_TRANSACTION: 5,
+    ALL: discrepancies.length,
+    AMOUNT_MISMATCH: discrepancies.filter(d => d.type === 'AMOUNT_MISMATCH').length,
+    MISSING_PAYMENT: discrepancies.filter(d => d.type === 'MISSING_PAYMENT').length,
+    MISSING_SETTLEMENT: discrepancies.filter(d => d.type === 'MISSING_SETTLEMENT').length,
+    DUPLICATE_TRANSACTION: discrepancies.filter(d => d.type === 'DUPLICATE_TRANSACTION').length,
   };
 
   const filteredDiscrepancies = discrepancies.filter((item) => {

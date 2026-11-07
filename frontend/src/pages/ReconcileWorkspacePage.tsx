@@ -19,7 +19,7 @@ interface ReconcileWorkspacePageProps {
 }
 
 export const ReconcileWorkspacePage: React.FC<ReconcileWorkspacePageProps> = ({ onNavigate }) => {
-  const { runReconciliation, activeRun } = useReconciliation();
+  const { runReconciliation, activeRun, activeBatch } = useReconciliation();
   const { playSuccess, playAlert, playCoinChime } = useAudio();
 
   const [currentStep, setCurrentStep] = useState<number>(0);
@@ -130,7 +130,7 @@ export const ReconcileWorkspacePage: React.FC<ReconcileWorkspacePageProps> = ({ 
             <div className="p-3 rounded-lg bg-navy-900 border border-navy-700/80 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-2.5 h-2.5 rounded-full bg-gold-400" />
-                <span className="text-xs font-semibold text-ivory-100">Orders Stream (1,250)</span>
+                <span className="text-xs font-semibold text-ivory-100">Orders Stream ({activeBatch?.ordersCount ?? 1250})</span>
               </div>
               <span className="text-[10px] font-mono text-slate-400">OMS</span>
             </div>
@@ -138,7 +138,7 @@ export const ReconcileWorkspacePage: React.FC<ReconcileWorkspacePageProps> = ({ 
             <div className="p-3 rounded-lg bg-navy-900 border border-navy-700/80 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-2.5 h-2.5 rounded-full bg-lavender-400" />
-                <span className="text-xs font-semibold text-ivory-100">Payments Stream (1,240)</span>
+                <span className="text-xs font-semibold text-ivory-100">Payments Stream ({activeBatch?.paymentsCount ?? 1240})</span>
               </div>
               <span className="text-[10px] font-mono text-slate-400">GATEWAY</span>
             </div>
@@ -146,7 +146,7 @@ export const ReconcileWorkspacePage: React.FC<ReconcileWorkspacePageProps> = ({ 
             <div className="p-3 rounded-lg bg-navy-900 border border-navy-700/80 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-                <span className="text-xs font-semibold text-ivory-100">Settlements Stream (1,220)</span>
+                <span className="text-xs font-semibold text-ivory-100">Settlements Stream ({activeBatch?.settlementsCount ?? 1220})</span>
               </div>
               <span className="text-[10px] font-mono text-slate-400">BANK</span>
             </div>
@@ -171,7 +171,9 @@ export const ReconcileWorkspacePage: React.FC<ReconcileWorkspacePageProps> = ({ 
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
                 <span className="text-xs font-semibold text-emerald-300">Balanced Ledger</span>
               </div>
-              <span className="text-xs font-mono font-bold text-emerald-400">1,205 (96.4%)</span>
+              <span className="text-xs font-mono font-bold text-emerald-400">
+                {activeRun?.metrics.matchedRecords ?? 1205} ({(activeRun?.metrics.reconciliationPercentage ?? 96.4).toFixed(1)}%)
+              </span>
             </div>
 
             <div className="p-3 rounded-lg bg-navy-900 border border-crimson-500/40 flex items-center justify-between">
@@ -179,7 +181,9 @@ export const ReconcileWorkspacePage: React.FC<ReconcileWorkspacePageProps> = ({ 
                 <div className="w-2.5 h-2.5 rounded-full bg-crimson-400" />
                 <span className="text-xs font-semibold text-crimson-300">Flagged Discrepancies</span>
               </div>
-              <span className="text-xs font-mono font-bold text-crimson-400">45 (3.6%)</span>
+              <span className="text-xs font-mono font-bold text-crimson-400">
+                {activeRun?.metrics.discrepanciesCount ?? 45} ({(100 - (activeRun?.metrics.reconciliationPercentage ?? 96.4)).toFixed(1)}%)
+              </span>
             </div>
           </div>
         </div>
@@ -273,7 +277,7 @@ export const ReconcileWorkspacePage: React.FC<ReconcileWorkspacePageProps> = ({ 
                 Reconciliation Run Completed Successfully
               </h3>
               <p className="text-xs text-slate-600">
-                1,205 matched records balanced. 45 discrepancies detected and registered for investigation.
+                {activeRun?.metrics.matchedRecords ?? 1205} matched records balanced. {activeRun?.metrics.discrepanciesCount ?? 45} discrepancies detected and registered for investigation.
               </p>
             </div>
           </div>

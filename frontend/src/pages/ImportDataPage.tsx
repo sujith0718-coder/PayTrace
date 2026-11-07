@@ -29,6 +29,8 @@ export const ImportDataPage: React.FC<ImportDataPageProps> = ({ onNavigate }) =>
   const [isUploading, setIsUploading] = useState(false);
   const [validationSuccess, setValidationSuccess] = useState(false);
 
+  const canProceed = Boolean((ordersFile && paymentsFile && settlementsFile) || validationSuccess);
+
   // Helper to trigger browser CSV download for sample templates
   const downloadTemplate = (type: 'orders' | 'payments' | 'settlements') => {
     let headers = '';
@@ -172,7 +174,7 @@ SET-3419,PAY-7855,2026-11-06,310.00,303.80,6.20,JPMC-TXN-44102
             </label>
             {ordersFile && (
               <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Validated (1,250 rows detected)
+                <CheckCircle2 className="w-3.5 h-3.5" /> Ready: {(ordersFile.size / 1024).toFixed(1)} KB ({ordersFile.name})
               </div>
             )}
           </div>
@@ -217,7 +219,7 @@ SET-3419,PAY-7855,2026-11-06,310.00,303.80,6.20,JPMC-TXN-44102
             </label>
             {paymentsFile && (
               <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Validated (1,240 rows detected)
+                <CheckCircle2 className="w-3.5 h-3.5" /> Ready: {(paymentsFile.size / 1024).toFixed(1)} KB ({paymentsFile.name})
               </div>
             )}
           </div>
@@ -262,7 +264,7 @@ SET-3419,PAY-7855,2026-11-06,310.00,303.80,6.20,JPMC-TXN-44102
             </label>
             {settlementsFile && (
               <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Validated (1,220 rows detected)
+                <CheckCircle2 className="w-3.5 h-3.5" /> Ready: {(settlementsFile.size / 1024).toFixed(1)} KB ({settlementsFile.name})
               </div>
             )}
           </div>
@@ -270,7 +272,7 @@ SET-3419,PAY-7855,2026-11-06,310.00,303.80,6.20,JPMC-TXN-44102
       </div>
 
       {/* Validation Summary Bar */}
-      {validationSuccess && (
+      {canProceed && (
         <Card variant="ivory" className="p-5 border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-600 shrink-0">
@@ -279,7 +281,7 @@ SET-3419,PAY-7855,2026-11-06,310.00,303.80,6.20,JPMC-TXN-44102
             <div>
               <h3 className="font-bold text-sm text-navy-950">Tri-Fold CSV Files Ready for Reconciliation</h3>
               <p className="text-xs text-slate-500">
-                3,710 total records tokenized. Mandatory headers identified. Ready to dispatch to Java engine.
+                All 3 source categories verified. Click below to upload and trigger the Java 3-Way Reconciliation Engine.
               </p>
             </div>
           </div>
