@@ -91,6 +91,18 @@ class ApiClient {
     };
   }
 
+  public async getDatabaseSummary(): Promise<any> {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/database-summary`, {
+        headers: this.getAuthHeader()
+      });
+      if (resp.ok) {
+        return await resp.json();
+      }
+    } catch {}
+    return null;
+  }
+
   private getAuthHeader(): Record<string, string> {
     const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
     return token ? { Authorization: `Bearer ${token}` } : {};

@@ -151,6 +151,7 @@ public class ReconciliationController {
                 // Seamlessly ensure any legacy columns exist without error
                 safeAddColumn(stmt, "investigations", "case_number", "VARCHAR(64)");
                 safeAddColumn(stmt, "investigations", "discrepancy_type", "VARCHAR(64)");
+                safeAddColumn(stmt, "investigations", "severity", "VARCHAR(32)");
                 safeAddColumn(stmt, "investigations", "assigned_analyst", "VARCHAR(64)");
                 safeAddColumn(stmt, "investigations", "assigned_analyst_email", "VARCHAR(128)");
                 safeAddColumn(stmt, "investigations", "run_id", "VARCHAR(64)");
@@ -315,12 +316,17 @@ public class ReconciliationController {
         List<SettlementRecord> settlements = batchId != null ? batchSettlements.get(batchId) : null;
 
         if (orders == null || orders.isEmpty()) {
-            if (!batchOrders.isEmpty()) {
+            if (batchId != null) {
+                orders = loadOrdersFromDatabase(batchId);
+                payments = loadPaymentsFromDatabase(batchId);
+                settlements = loadSettlementsFromDatabase(batchId);
+            }
+            if ((orders == null || orders.isEmpty()) && !batchOrders.isEmpty()) {
                 String latestBatch = batchOrders.keySet().iterator().next();
                 orders = batchOrders.get(latestBatch);
                 payments = batchPayments.get(latestBatch);
                 settlements = batchSettlements.get(latestBatch);
-            } else {
+            } else if (orders == null || orders.isEmpty()) {
                 orders = createDefaultOrders();
                 payments = createDefaultPayments();
                 settlements = createDefaultSettlements();
@@ -404,6 +410,38 @@ public class ReconciliationController {
         persistFullRunToDatabase(runId, finalBatchId, result, discrepancyMaps, newInvestigations);
 
         return ResponseEntity.ok(run);
+    }
+
+    @GetMapping({"/reconciliation-runs", "/api/reconciliation-runs"})
+    public ResponseEntity<List<Map<String, Object>>> getAllRuns() {
+        if (!runsCache.isEmpty()) {
+            return ResponseEntity.ok(new ArrayList<>(runsCache.values()));
+        }
+        if (dataSource != null) {
+            List<Map<String, Object>> list = new ArrayList<>();
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery("SELECT * FROM reconciliation_runs ORDER BY created_at DESC LIMIT 20")) {
+                while (rs.next()) {
+                    Map<String, Object> r = new HashMap<>();
+                    r.put("runId", rs.getString("run_id"));
+                    r.put("batchId", rs.getString("batch_id"));
+                    r.put("status", rs.getString("status"));
+                    r.put("completedAt", rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toString() : Instant.now().toString());
+                    Map<String, Object> metrics = new HashMap<>();
+                    metrics.put("totalRecords", rs.getInt("total_records"));
+                    metrics.put("matchedRecords", rs.getInt("matched_records"));
+                    metrics.put("discrepanciesCount", rs.getInt("discrepancies_count"));
+                    metrics.put("reconciliationPercentage", rs.getDouble("match_percentage"));
+                    metrics.put("totalOrderValue", rs.getBigDecimal("total_order_value"));
+                    metrics.put("totalSettledValue", rs.getBigDecimal("total_settled_value"));
+                    r.put("metrics", metrics);
+                    list.add(r);
+                }
+            } catch (Exception ignored) {}
+            if (!list.isEmpty()) return ResponseEntity.ok(list);
+        }
+        return ResponseEntity.ok(List.of(createStarterRun()));
     }
 
     @GetMapping({"/reconciliation-runs/{runId}", "/api/reconciliation-runs/{runId}"})
@@ -525,6 +563,48 @@ public class ReconciliationController {
         return ResponseEntity.ok(new ArrayList<>(auditLogsCache));
     }
 
+    @GetMapping({"/database-summary", "/api/database-summary"})
+    public ResponseEntity<Map<String, Object>> getDatabaseSummary() {
+        Map<String, Object> summary = new HashMap<>();
+        summary.put("database", "paytrace_db");
+        summary.put("timestamp", Instant.now().toString());
+
+        if (dataSource != null) {
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+                summary.put("status", "CONNECTED");
+                summary.put("product", conn.getMetaData().getDatabaseProductName());
+                summary.put("version", conn.getMetaData().getDatabaseProductVersion());
+
+                Map<String, Integer> counts = new HashMap<>();
+                for (String tbl : List.of("orders", "payments", "settlements", "reconciliation_runs", "discrepancies", "investigations")) {
+                    try (ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM " + tbl)) {
+                        if (rs.next()) counts.put(tbl, rs.getInt(1));
+                    } catch (Exception e) {
+                        counts.put(tbl, 0);
+                    }
+                }
+                summary.put("counts", counts);
+
+                List<String> batches = new ArrayList<>();
+                try (ResultSet rs = stmt.executeQuery("SELECT DISTINCT batch_id FROM orders ORDER BY created_at DESC LIMIT 5")) {
+                    while (rs.next()) {
+                        String b = rs.getString(1);
+                        if (b != null) batches.add(b);
+                    }
+                } catch (Exception ignored) {}
+                summary.put("recentBatches", batches);
+
+            } catch (Exception e) {
+                summary.put("status", "ERROR");
+                summary.put("error", e.getMessage());
+            }
+        } else {
+            summary.put("status", "NO_DATASOURCE");
+        }
+        return ResponseEntity.ok(summary);
+    }
+
     private void persistFullRunToDatabase(
             String runId,
             String batchId,
@@ -598,6 +678,80 @@ public class ReconciliationController {
         } catch (Exception e) {
             System.err.println("Could not persist run to TiDB: " + e.getMessage());
         }
+    }
+
+    private List<OrderRecord> loadOrdersFromDatabase(String batchId) {
+        if (dataSource == null) return Collections.emptyList();
+        List<OrderRecord> list = new ArrayList<>();
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT order_id, customer_id, amount, currency, status, created_at FROM orders WHERE batch_id = ?")) {
+            ps.setString(1, batchId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(new OrderRecord(
+                        rs.getString("order_id"),
+                        rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toLocalDateTime() : LocalDateTime.now(),
+                        rs.getString("customer_id"),
+                        rs.getBigDecimal("amount"),
+                        rs.getString("currency"),
+                        rs.getString("status")
+                    ));
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error reading orders for batch " + batchId + ": " + e.getMessage());
+        }
+        return list;
+    }
+
+    private List<PaymentTransaction> loadPaymentsFromDatabase(String batchId) {
+        if (dataSource == null) return Collections.emptyList();
+        List<PaymentTransaction> list = new ArrayList<>();
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT payment_id, order_id, amount, fee, gateway, status, created_at FROM payments WHERE batch_id = ?")) {
+            ps.setString(1, batchId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(new PaymentTransaction(
+                        rs.getString("payment_id"),
+                        rs.getString("order_id"),
+                        rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toLocalDateTime() : LocalDateTime.now(),
+                        rs.getBigDecimal("amount"),
+                        rs.getBigDecimal("fee"),
+                        rs.getString("gateway"),
+                        rs.getString("status")
+                    ));
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error reading payments for batch " + batchId + ": " + e.getMessage());
+        }
+        return list;
+    }
+
+    private List<SettlementRecord> loadSettlementsFromDatabase(String batchId) {
+        if (dataSource == null) return Collections.emptyList();
+        List<SettlementRecord> list = new ArrayList<>();
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT settlement_id, payment_id, gross_amount, net_amount, fee, bank_reference, created_at FROM settlements WHERE batch_id = ?")) {
+            ps.setString(1, batchId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(new SettlementRecord(
+                        rs.getString("settlement_id"),
+                        rs.getString("payment_id"),
+                        rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toLocalDateTime() : LocalDateTime.now(),
+                        rs.getBigDecimal("gross_amount"),
+                        rs.getBigDecimal("net_amount"),
+                        rs.getBigDecimal("fee"),
+                        rs.getString("bank_reference")
+                    ));
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error reading settlements for batch " + batchId + ": " + e.getMessage());
+        }
+        return list;
     }
 
     private List<OrderRecord> createDefaultOrders() {
