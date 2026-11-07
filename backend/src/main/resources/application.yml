@@ -6,9 +6,9 @@ spring:
     name: paytrace-backend
 
   datasource:
-    url: jdbc:mysql://localhost:3306/paytrace_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-    username: root
-    password: password
+    url: jdbc:mysql://gateway01.ap-southeast-1.prod.aws.tidbcloud.com:4000/paytrace_db?useSSL=true&sslMode=VERIFY_IDENTITY&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: 3ipscmp8XB7WqMR.root
+    password: B64jyanyvEZd2McL
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
@@ -33,4 +33,3 @@ paytrace:
   jwt:
     secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
     expiration-ms: 86400000 # 24 hours
-
