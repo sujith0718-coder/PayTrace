@@ -38,13 +38,25 @@ export const ImportDataPage: React.FC<ImportDataPageProps> = ({ onNavigate }) =>
 
     if (type === 'orders') {
       headers = 'order_id,order_date,customer_id,order_amount,currency,order_status\n';
-      rows = 'ORD-9821,2026-11-05,CUST-8812,250.00,USD,COMPLETED\nORD-9844,2026-11-05,CUST-3319,420.00,USD,COMPLETED\nORD-9850,2026-11-04,CUST-1044,180.00,USD,COMPLETED\n';
+      rows = 
+        'ORD-9821,2026-11-05,CUST-8812,250.00,INR,COMPLETED\n' +
+        'ORD-9844,2026-11-05,CUST-3319,420.00,INR,COMPLETED\n' +
+        'ORD-9850,2026-11-04,CUST-1044,180.00,INR,COMPLETED\n' +
+        'ORD-9877,2026-11-06,CUST-5512,95.00,INR,COMPLETED\n' +
+        'ORD-9890,2026-11-06,CUST-6623,310.00,INR,COMPLETED\n';
     } else if (type === 'payments') {
       headers = 'payment_id,order_id,payment_date,payment_amount,fee_amount,payment_status,payment_method\n';
-      rows = 'PAY-7712,ORD-9821,2026-11-05,230.00,4.60,CAPTURED,Stripe\nPAY-7790,ORD-9850,2026-11-04,180.00,3.60,CAPTURED,Adyen\nPAY-7820,ORD-9877,2026-11-06,95.00,1.90,CAPTURED,Stripe\n';
+      rows = 
+        'PAY-7712,ORD-9821,2026-11-05,230.00,4.60,CAPTURED,Stripe\n' +
+        'PAY-7790,ORD-9850,2026-11-04,180.00,3.60,CAPTURED,Adyen\n' +
+        'PAY-7820,ORD-9877,2026-11-06,95.00,1.90,CAPTURED,Stripe\n' +
+        'PAY-7855,ORD-9890,2026-11-06,310.00,6.20,CAPTURED,Stripe\n';
     } else {
       headers = 'settlement_id,payment_id,settlement_date,gross_amount,net_amount,settlement_fee,bank_reference\n';
-      rows = 'SET-3310,PAY-7712,2026-11-06,230.00,225.40,4.60,CITI-TXN-90214\nSET-3419,PAY-7855,2026-11-06,297.50,291.30,6.20,JPMC-TXN-44102\n';
+      rows = 
+        'SET-3310,PAY-7712,2026-11-06,230.00,225.40,4.60,CITI-TXN-90214\n' +
+        'SET-3345,PAY-7820,2026-11-06,95.00,93.10,1.90,CHASE-TXN-11029\n' +
+        'SET-3419,PAY-7855,2026-11-06,310.00,303.80,6.20,JPMC-TXN-44102\n';
     }
 
     const blob = new Blob([headers + rows], { type: 'text/csv' });
