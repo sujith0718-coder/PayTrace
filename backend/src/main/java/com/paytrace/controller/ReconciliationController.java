@@ -157,11 +157,17 @@ public class ReconciliationController {
                 safeAddColumn(stmt, "payments", "transaction_timestamp", "TIMESTAMP NULL");
                 safeAddColumn(stmt, "settlements", "transaction_timestamp", "TIMESTAMP NULL");
                 safeAddColumn(stmt, "investigations", "case_number", "VARCHAR(64)");
+                safeAddColumn(stmt, "investigations", "discrepancy_id", "VARCHAR(64)");
+                safeAddColumn(stmt, "investigations", "run_id", "VARCHAR(64)");
                 safeAddColumn(stmt, "investigations", "discrepancy_type", "VARCHAR(64)");
                 safeAddColumn(stmt, "investigations", "severity", "VARCHAR(32)");
+                safeAddColumn(stmt, "investigations", "status", "VARCHAR(32)");
+                safeAddColumn(stmt, "investigations", "variance_amount", "VARCHAR(32)");
                 safeAddColumn(stmt, "investigations", "assigned_analyst", "VARCHAR(64)");
                 safeAddColumn(stmt, "investigations", "assigned_analyst_email", "VARCHAR(128)");
-                safeAddColumn(stmt, "investigations", "run_id", "VARCHAR(64)");
+                safeAddColumn(stmt, "investigations", "assigned_to", "VARCHAR(64)");
+                safeAddColumn(stmt, "investigations", "resolution_category", "VARCHAR(64)");
+                safeAddColumn(stmt, "investigations", "resolution_note", "TEXT");
                 safeAddColumn(stmt, "investigations", "updated_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
 
                 System.out.println("PayTrace database tables verified and initialized in TiDB Cloud!");
@@ -313,9 +319,25 @@ public class ReconciliationController {
         }
     }
 
+    private String getLatestBatchFromDatabase() {
+        if (dataSource == null) return null;
+        try (Connection conn = dataSource.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT batch_id FROM orders GROUP BY batch_id ORDER BY MAX(created_at) DESC LIMIT 1")) {
+            if (rs.next()) {
+                return rs.getString("batch_id");
+            }
+        } catch (Exception e) {
+            System.err.println("Error fetching latest batch: " + e.getMessage());
+        }
+        return null;
+    }
+
     @PostMapping({"/reconciliation-runs", "/api/reconciliation-runs"})
     public ResponseEntity<Map<String, Object>> triggerRun(@RequestBody(required = false) Map<String, Object> req) {
-        String batchId = req != null && req.containsKey("batchId") ? req.get("batchId").toString() : null;
+        String batchId = req != null && req.containsKey("batchId") && req.get("batchId") != null && !req.get("batchId").toString().trim().isEmpty() 
+                ? req.get("batchId").toString().trim() 
+                : null;
         BigDecimal tolerance = new BigDecimal("0.05");
         if (req != null && req.containsKey("toleranceAmount")) {
             try {
@@ -338,18 +360,31 @@ public class ReconciliationController {
                 orders = batchOrders.get(latestBatch);
                 payments = batchPayments.get(latestBatch);
                 settlements = batchSettlements.get(latestBatch);
-            } else if (orders == null || orders.isEmpty()) {
+                batchId = latestBatch;
+            } else if ((orders == null || orders.isEmpty()) && dataSource != null) {
+                String latestDbBatch = getLatestBatchFromDatabase();
+                if (latestDbBatch != null) {
+                    orders = loadOrdersFromDatabase(latestDbBatch);
+                    payments = loadPaymentsFromDatabase(latestDbBatch);
+                    settlements = loadSettlementsFromDatabase(latestDbBatch);
+                    if (orders != null && !orders.isEmpty()) {
+                        batchId = latestDbBatch;
+                    }
+                }
+            }
+            
+            if (orders == null || orders.isEmpty()) {
                 orders = createDefaultOrders();
                 payments = createDefaultPayments();
                 settlements = createDefaultSettlements();
             }
         }
 
-        ReconciliationEngine engine = new ReconciliationEngine(tolerance);
-        ReconciliationResult result = engine.reconcile(orders, payments, settlements);
-
         String runId = "RUN-" + (System.currentTimeMillis() % 100000);
         String finalBatchId = batchId != null ? batchId : "BATCH-101";
+
+        ReconciliationEngine engine = new ReconciliationEngine(tolerance);
+        ReconciliationResult result = engine.reconcile(runId, orders, payments, settlements);
 
         List<Map<String, Object>> discrepancyMaps = new ArrayList<>();
         List<Map<String, Object>> newInvestigations = new ArrayList<>();
@@ -357,7 +392,7 @@ public class ReconciliationController {
 
         for (Discrepancy d : result.getDiscrepancies()) {
             String severity = d.getVariance().abs().compareTo(new BigDecimal("100")) > 0 ? "HIGH" : "MEDIUM";
-            String caseNum = "INV-2026-" + (invIndex++);
+            String caseNum = "INV-" + runId.replace("RUN-", "") + "-" + (invIndex++);
 
             Map<String, Object> map = new HashMap<>();
             map.put("id", d.getId());
@@ -650,7 +685,7 @@ public class ReconciliationController {
                 summary.put("counts", counts);
 
                 List<String> batches = new ArrayList<>();
-                try (ResultSet rs = stmt.executeQuery("SELECT DISTINCT batch_id FROM orders ORDER BY created_at DESC LIMIT 5")) {
+                try (ResultSet rs = stmt.executeQuery("SELECT batch_id FROM orders GROUP BY batch_id ORDER BY MAX(created_at) DESC LIMIT 5")) {
                     while (rs.next()) {
                         String b = rs.getString(1);
                         if (b != null) batches.add(b);
@@ -701,15 +736,15 @@ public class ReconciliationController {
                 ON DUPLICATE KEY UPDATE explanation=VALUES(explanation)
             """)) {
                 for (Map<String, Object> d : discrepancies) {
-                    ps.setString(1, d.get("id").toString());
+                    ps.setString(1, d.get("id") != null ? d.get("id").toString() : null);
                     ps.setString(2, runId);
-                    ps.setString(3, d.get("type").toString());
-                    ps.setString(4, d.get("severity").toString());
-                    ps.setString(5, d.get("orderId").toString());
-                    ps.setString(6, d.get("explanation").toString());
-                    ps.setBigDecimal(7, new BigDecimal(d.get("expectedAmount").toString()));
-                    ps.setBigDecimal(8, new BigDecimal(d.get("actualAmount").toString()));
-                    ps.setBigDecimal(9, new BigDecimal(d.get("variance").toString()));
+                    ps.setString(3, d.get("type") != null ? d.get("type").toString() : null);
+                    ps.setString(4, d.get("severity") != null ? d.get("severity").toString() : null);
+                    ps.setString(5, d.get("orderId") != null ? d.get("orderId").toString() : null);
+                    ps.setString(6, d.get("explanation") != null ? d.get("explanation").toString() : null);
+                    ps.setBigDecimal(7, d.get("expectedAmount") != null ? new BigDecimal(d.get("expectedAmount").toString()) : BigDecimal.ZERO);
+                    ps.setBigDecimal(8, d.get("actualAmount") != null ? new BigDecimal(d.get("actualAmount").toString()) : BigDecimal.ZERO);
+                    ps.setBigDecimal(9, d.get("variance") != null ? new BigDecimal(d.get("variance").toString()) : BigDecimal.ZERO);
                     ps.addBatch();
                 }
                 ps.executeBatch();
@@ -722,16 +757,16 @@ public class ReconciliationController {
                 ON DUPLICATE KEY UPDATE status=VALUES(status)
             """)) {
                 for (Map<String, Object> inv : investigations) {
-                    ps.setString(1, inv.get("id").toString());
-                    ps.setString(2, inv.get("caseNumber").toString());
-                    ps.setString(3, inv.get("discrepancyId").toString());
+                    ps.setString(1, inv.get("id") != null ? inv.get("id").toString() : null);
+                    ps.setString(2, inv.get("caseNumber") != null ? inv.get("caseNumber").toString() : null);
+                    ps.setString(3, inv.get("discrepancyId") != null ? inv.get("discrepancyId").toString() : null);
                     ps.setString(4, runId);
-                    ps.setString(5, inv.get("discrepancyType").toString());
-                    ps.setString(6, inv.get("severity").toString());
-                    ps.setString(7, inv.get("varianceAmount").toString());
-                    ps.setString(8, inv.get("assignedAnalyst").toString());
-                    ps.setString(9, inv.get("assignedAnalystEmail").toString());
-                    ps.setString(10, inv.get("assignedTo").toString());
+                    ps.setString(5, inv.get("discrepancyType") != null ? inv.get("discrepancyType").toString() : null);
+                    ps.setString(6, inv.get("severity") != null ? inv.get("severity").toString() : null);
+                    ps.setString(7, inv.get("varianceAmount") != null ? inv.get("varianceAmount").toString() : null);
+                    ps.setString(8, inv.get("assignedAnalyst") != null ? inv.get("assignedAnalyst").toString() : "Sujith E");
+                    ps.setString(9, inv.get("assignedAnalystEmail") != null ? inv.get("assignedAnalystEmail").toString() : "sujith@paytrace.fin");
+                    ps.setString(10, inv.get("assignedTo") != null ? inv.get("assignedTo").toString() : "Sujith E");
                     ps.addBatch();
                 }
                 ps.executeBatch();
@@ -740,6 +775,7 @@ public class ReconciliationController {
             System.out.println("Reconciliation Run " + runId + ", discrepancies, and investigation cases successfully persisted to TiDB Cloud!");
         } catch (Exception e) {
             System.err.println("Could not persist run to TiDB: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -851,119 +887,70 @@ public class ReconciliationController {
         return null;
     }
 
-    private List<Map<String, Object>> loadDiscrepanciesFromDb(String runId) {
-        if (dataSource == null) return Collections.emptyList();
-        List<Map<String, Object>> list = new ArrayList<>();
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement("SELECT * FROM discrepancies WHERE run_id = ? ORDER BY id ASC")) {
-            ps.setString(1, runId);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    Map<String, Object> d = new HashMap<>();
-                    String id = rs.getString("id");
-                    String orderId = rs.getString("order_id");
-                    String discType = rs.getString("type");
-                    d.put("id", id);
-                    d.put("runId", rs.getString("run_id"));
-                    d.put("type", discType);
-                    d.put("severity", rs.getString("severity"));
-                    d.put("orderId", orderId);
-                    d.put("explanation", rs.getString("explanation"));
-                    d.put("expectedAmount", rs.getBigDecimal("expected_amount") != null ? rs.getBigDecimal("expected_amount").toPlainString() : "0.00");
-                    d.put("actualAmount", rs.getBigDecimal("actual_amount") != null ? rs.getBigDecimal("actual_amount").toPlainString() : "0.00");
-                    d.put("variance", rs.getBigDecimal("variance") != null ? rs.getBigDecimal("variance").toPlainString() : "0.00");
-                    d.put("createdAt", rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toInstant().toString() : Instant.now().toString());
+    private Map<String, Object> mapDiscrepancyFromResultSet(Connection conn, ResultSet rs) throws SQLException {
+        Map<String, Object> d = new HashMap<>();
+        String id = rs.getString("id");
+        String orderId = rs.getString("order_id");
+        String discType = rs.getString("type");
+        d.put("id", id);
+        d.put("runId", rs.getString("run_id"));
+        d.put("type", discType);
+        d.put("severity", rs.getString("severity"));
+        d.put("orderId", orderId);
+        d.put("explanation", rs.getString("explanation"));
+        d.put("expectedAmount", rs.getBigDecimal("expected_amount") != null ? rs.getBigDecimal("expected_amount").toPlainString() : "0.00");
+        d.put("actualAmount", rs.getBigDecimal("actual_amount") != null ? rs.getBigDecimal("actual_amount").toPlainString() : "0.00");
+        d.put("variance", rs.getBigDecimal("variance") != null ? rs.getBigDecimal("variance").toPlainString() : "0.00");
+        d.put("createdAt", rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toInstant().toString() : Instant.now().toString());
 
-                    // Hydrate OrderRecord from DB if it exists
-                    if (orderId != null && !orderId.isEmpty() && !"MISSING_ORDER".equals(discType) && !"UNMATCHED_SETTLEMENT".equals(discType)) {
-                        try (PreparedStatement ops = conn.prepareStatement("SELECT * FROM orders WHERE order_id = ? LIMIT 1")) {
-                            ops.setString(1, orderId);
-                            try (ResultSet ors = ops.executeQuery()) {
-                                if (ors.next()) {
-                                    Map<String, Object> ordMap = new HashMap<>();
-                                    ordMap.put("orderId", ors.getString("order_id"));
-                                    ordMap.put("customerId", ors.getString("customer_id"));
-                                    Timestamp txTs = null;
-                                    try { txTs = ors.getTimestamp("transaction_timestamp"); } catch (Exception ignored) {}
-                                    Timestamp crTs = ors.getTimestamp("created_at");
-                                    ordMap.put("orderDate", txTs != null ? txTs.toString() : (crTs != null ? crTs.toString() : ""));
-                                    ordMap.put("createdAt", crTs != null ? crTs.toString() : "");
-                                    ordMap.put("amount", ors.getBigDecimal("amount") != null ? ors.getBigDecimal("amount").toPlainString() : "0.00");
-                                    ordMap.put("currency", ors.getString("currency"));
-                                    ordMap.put("status", ors.getString("status"));
-                                    d.put("orderRecord", ordMap);
-                                }
-                            }
-                        } catch (Exception ignored) {}
+        // Hydrate OrderRecord from DB if it exists
+        if (orderId != null && !orderId.isEmpty() && !"MISSING_ORDER".equals(discType) && !"UNMATCHED_SETTLEMENT".equals(discType)) {
+            try (PreparedStatement ops = conn.prepareStatement("SELECT * FROM orders WHERE order_id = ? LIMIT 1")) {
+                ops.setString(1, orderId);
+                try (ResultSet ors = ops.executeQuery()) {
+                    if (ors.next()) {
+                        Map<String, Object> ordMap = new HashMap<>();
+                        ordMap.put("orderId", ors.getString("order_id"));
+                        ordMap.put("customerId", ors.getString("customer_id"));
+                        Timestamp txTs = null;
+                        try { txTs = ors.getTimestamp("transaction_timestamp"); } catch (Exception ignored) {}
+                        Timestamp crTs = ors.getTimestamp("created_at");
+                        ordMap.put("orderDate", txTs != null ? txTs.toString() : (crTs != null ? crTs.toString() : ""));
+                        ordMap.put("createdAt", crTs != null ? crTs.toString() : "");
+                        ordMap.put("amount", ors.getBigDecimal("amount") != null ? ors.getBigDecimal("amount").toPlainString() : "0.00");
+                        ordMap.put("currency", ors.getString("currency"));
+                        ordMap.put("status", ors.getString("status"));
+                        d.put("orderRecord", ordMap);
                     }
+                }
+            } catch (Exception ignored) {}
+        }
 
-                    // Hydrate PaymentTransaction from DB if applicable
-                    if (orderId != null && !orderId.isEmpty() && !"MISSING_PAYMENT".equals(discType) && !"UNMATCHED_SETTLEMENT".equals(discType)) {
-                        try (PreparedStatement pps = conn.prepareStatement("SELECT * FROM payments WHERE order_id = ? OR payment_id = ? LIMIT 1")) {
-                            pps.setString(1, orderId);
-                            pps.setString(2, orderId);
-                            try (ResultSet prs = pps.executeQuery()) {
-                                if (prs.next()) {
-                                    Map<String, Object> payMap = new HashMap<>();
-                                    String pid = prs.getString("payment_id");
-                                    payMap.put("paymentId", pid);
-                                    payMap.put("orderId", prs.getString("order_id"));
-                                    Timestamp ptxTs = null;
-                                    try { ptxTs = prs.getTimestamp("transaction_timestamp"); } catch (Exception ignored) {}
-                                    Timestamp pcrTs = prs.getTimestamp("created_at");
-                                    payMap.put("paymentDate", ptxTs != null ? ptxTs.toString() : (pcrTs != null ? pcrTs.toString() : ""));
-                                    payMap.put("createdAt", pcrTs != null ? pcrTs.toString() : "");
-                                    payMap.put("amount", prs.getBigDecimal("amount") != null ? prs.getBigDecimal("amount").toPlainString() : "0.00");
-                                    payMap.put("fee", prs.getBigDecimal("fee") != null ? prs.getBigDecimal("fee").toPlainString() : "0.00");
-                                    payMap.put("gateway", prs.getString("gateway"));
-                                    payMap.put("status", prs.getString("status"));
-                                    d.put("paymentRecord", payMap);
+        // Hydrate PaymentTransaction from DB if applicable
+        if (orderId != null && !orderId.isEmpty() && !"MISSING_PAYMENT".equals(discType) && !"UNMATCHED_SETTLEMENT".equals(discType)) {
+            try (PreparedStatement pps = conn.prepareStatement("SELECT * FROM payments WHERE order_id = ? OR payment_id = ? LIMIT 1")) {
+                pps.setString(1, orderId);
+                pps.setString(2, orderId);
+                try (ResultSet prs = pps.executeQuery()) {
+                    if (prs.next()) {
+                        Map<String, Object> payMap = new HashMap<>();
+                        String pid = prs.getString("payment_id");
+                        payMap.put("paymentId", pid);
+                        payMap.put("orderId", prs.getString("order_id"));
+                        Timestamp ptxTs = null;
+                        try { ptxTs = prs.getTimestamp("transaction_timestamp"); } catch (Exception ignored) {}
+                        Timestamp pcrTs = prs.getTimestamp("created_at");
+                        payMap.put("paymentDate", ptxTs != null ? ptxTs.toString() : (pcrTs != null ? pcrTs.toString() : ""));
+                        payMap.put("createdAt", pcrTs != null ? pcrTs.toString() : "");
+                        payMap.put("amount", prs.getBigDecimal("amount") != null ? prs.getBigDecimal("amount").toPlainString() : "0.00");
+                        payMap.put("fee", prs.getBigDecimal("fee") != null ? prs.getBigDecimal("fee").toPlainString() : "0.00");
+                        payMap.put("gateway", prs.getString("gateway"));
+                        payMap.put("status", prs.getString("status"));
+                        d.put("paymentRecord", payMap);
 
-                                    // If payment found, check settlement
-                                    try (PreparedStatement sps = conn.prepareStatement("SELECT * FROM settlements WHERE payment_id = ? LIMIT 1")) {
-                                        sps.setString(1, pid);
-                                        try (ResultSet srs = sps.executeQuery()) {
-                                            if (srs.next()) {
-                                                Map<String, Object> stlMap = new HashMap<>();
-                                                stlMap.put("settlementId", srs.getString("settlement_id"));
-                                                stlMap.put("paymentId", srs.getString("payment_id"));
-                                                Timestamp stxTs = null;
-                                                try { stxTs = srs.getTimestamp("transaction_timestamp"); } catch (Exception ignored) {}
-                                                Timestamp scrTs = srs.getTimestamp("created_at");
-                                                stlMap.put("settlementDate", stxTs != null ? stxTs.toString() : (scrTs != null ? scrTs.toString() : ""));
-                                                stlMap.put("createdAt", scrTs != null ? scrTs.toString() : "");
-                                                stlMap.put("grossAmount", srs.getBigDecimal("gross_amount") != null ? srs.getBigDecimal("gross_amount").toPlainString() : "0.00");
-                                                stlMap.put("netAmount", srs.getBigDecimal("net_amount") != null ? srs.getBigDecimal("net_amount").toPlainString() : "0.00");
-                                                stlMap.put("fee", srs.getBigDecimal("fee") != null ? srs.getBigDecimal("fee").toPlainString() : "0.00");
-                                                stlMap.put("bankReference", srs.getString("bank_reference"));
-                                                d.put("settlementRecord", stlMap);
-                                            }
-                                        }
-                                    } catch (Exception ignored) {}
-                                }
-                            }
-                        } catch (Exception ignored) {}
-                    }
-
-                    // Hydrate SettlementRecord for UNMATCHED_SETTLEMENT
-                    String settlementId = null;
-                    if (orderId != null && !orderId.isEmpty()) {
-                        settlementId = orderId;
-                    } else if (d.get("explanation") != null) {
-                        String exp = d.get("explanation").toString();
-                        int start = exp.indexOf("recorded (");
-                        if (start != -1) {
-                            int end = exp.indexOf(",", start);
-                            if (end == -1) end = exp.indexOf(")", start);
-                            if (end != -1) {
-                                settlementId = exp.substring(start + 10, end).trim();
-                            }
-                        }
-                    }
-
-                    if ("UNMATCHED_SETTLEMENT".equals(discType) && settlementId != null) {
-                        try (PreparedStatement sps = conn.prepareStatement("SELECT * FROM settlements WHERE settlement_id = ? LIMIT 1")) {
-                            sps.setString(1, settlementId);
+                        // If payment found, check settlement
+                        try (PreparedStatement sps = conn.prepareStatement("SELECT * FROM settlements WHERE payment_id = ? LIMIT 1")) {
+                            sps.setString(1, pid);
                             try (ResultSet srs = sps.executeQuery()) {
                                 if (srs.next()) {
                                     Map<String, Object> stlMap = new HashMap<>();
@@ -983,8 +970,61 @@ public class ReconciliationController {
                             }
                         } catch (Exception ignored) {}
                     }
+                }
+            } catch (Exception ignored) {}
+        }
 
-                    list.add(d);
+        // Hydrate SettlementRecord for UNMATCHED_SETTLEMENT
+        String settlementId = null;
+        if (orderId != null && !orderId.isEmpty()) {
+            settlementId = orderId;
+        } else if (d.get("explanation") != null) {
+            String exp = d.get("explanation").toString();
+            int start = exp.indexOf("recorded (");
+            if (start != -1) {
+                int end = exp.indexOf(",", start);
+                if (end == -1) end = exp.indexOf(")", start);
+                if (end != -1) {
+                    settlementId = exp.substring(start + 10, end).trim();
+                }
+            }
+        }
+
+        if ("UNMATCHED_SETTLEMENT".equals(discType) && settlementId != null) {
+            try (PreparedStatement sps = conn.prepareStatement("SELECT * FROM settlements WHERE settlement_id = ? LIMIT 1")) {
+                sps.setString(1, settlementId);
+                try (ResultSet srs = sps.executeQuery()) {
+                    if (srs.next()) {
+                        Map<String, Object> stlMap = new HashMap<>();
+                        stlMap.put("settlementId", srs.getString("settlement_id"));
+                        stlMap.put("paymentId", srs.getString("payment_id"));
+                        Timestamp stxTs = null;
+                        try { stxTs = srs.getTimestamp("transaction_timestamp"); } catch (Exception ignored) {}
+                        Timestamp scrTs = srs.getTimestamp("created_at");
+                        stlMap.put("settlementDate", stxTs != null ? stxTs.toString() : (scrTs != null ? scrTs.toString() : ""));
+                        stlMap.put("createdAt", scrTs != null ? scrTs.toString() : "");
+                        stlMap.put("grossAmount", srs.getBigDecimal("gross_amount") != null ? srs.getBigDecimal("gross_amount").toPlainString() : "0.00");
+                        stlMap.put("netAmount", srs.getBigDecimal("net_amount") != null ? srs.getBigDecimal("net_amount").toPlainString() : "0.00");
+                        stlMap.put("fee", srs.getBigDecimal("fee") != null ? srs.getBigDecimal("fee").toPlainString() : "0.00");
+                        stlMap.put("bankReference", srs.getString("bank_reference"));
+                        d.put("settlementRecord", stlMap);
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        return d;
+    }
+
+    private List<Map<String, Object>> loadDiscrepanciesFromDb(String runId) {
+        if (dataSource == null) return Collections.emptyList();
+        List<Map<String, Object>> list = new ArrayList<>();
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT * FROM discrepancies WHERE run_id = ? ORDER BY id ASC")) {
+            ps.setString(1, runId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapDiscrepancyFromResultSet(conn, rs));
                 }
             }
         } catch (Exception e) {
@@ -996,75 +1036,182 @@ public class ReconciliationController {
     private List<Map<String, Object>> loadInvestigationsFromDb() {
         if (dataSource == null) return Collections.emptyList();
         List<Map<String, Object>> list = new ArrayList<>();
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement("SELECT * FROM investigations ORDER BY created_at DESC LIMIT 50");
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                Map<String, Object> inv = new HashMap<>();
-                String id = rs.getString("id");
-                String discId = rs.getString("discrepancy_id");
-                String runId = rs.getString("run_id");
-                inv.put("id", id);
-                inv.put("caseNumber", rs.getString("case_number"));
-                inv.put("discrepancyId", discId);
-                inv.put("runId", runId);
-                inv.put("discrepancyType", rs.getString("discrepancy_type"));
-                inv.put("severity", rs.getString("severity"));
-                inv.put("status", rs.getString("status"));
-                inv.put("priority", rs.getString("severity"));
-                inv.put("varianceAmount", rs.getString("variance_amount"));
-                inv.put("assignedAnalyst", rs.getString("assigned_analyst"));
-                inv.put("assignedAnalystEmail", rs.getString("assigned_analyst_email"));
-                inv.put("assignedTo", rs.getString("assigned_to"));
-                inv.put("createdAt", rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toInstant().toString() : Instant.now().toString());
-                inv.put("updatedAt", rs.getTimestamp("updated_at") != null ? rs.getTimestamp("updated_at").toInstant().toString() : Instant.now().toString());
-                inv.put("resolutionCategory", rs.getString("resolution_category"));
-                inv.put("resolutionNote", rs.getString("resolution_note"));
+        try (Connection conn = dataSource.getConnection()) {
+            try (PreparedStatement ps = conn.prepareStatement("SELECT * FROM investigations ORDER BY created_at DESC LIMIT 50");
+                 ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> inv = new HashMap<>();
+                    String id = rs.getString("id");
+                    String discId = rs.getString("discrepancy_id");
+                    String runId = rs.getString("run_id");
+                    inv.put("id", id);
+                    inv.put("caseNumber", rs.getString("case_number"));
+                    inv.put("discrepancyId", discId);
+                    inv.put("runId", runId);
+                    inv.put("discrepancyType", rs.getString("discrepancy_type"));
+                    inv.put("severity", rs.getString("severity"));
+                    inv.put("status", rs.getString("status"));
+                    inv.put("priority", rs.getString("severity"));
+                    inv.put("varianceAmount", rs.getString("variance_amount"));
+                    inv.put("assignedAnalyst", rs.getString("assigned_analyst"));
+                    inv.put("assignedAnalystEmail", rs.getString("assigned_analyst_email"));
+                    inv.put("assignedTo", rs.getString("assigned_to"));
+                    inv.put("createdAt", rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toInstant().toString() : Instant.now().toString());
+                    inv.put("updatedAt", rs.getTimestamp("updated_at") != null ? rs.getTimestamp("updated_at").toInstant().toString() : Instant.now().toString());
+                    inv.put("resolutionCategory", rs.getString("resolution_category"));
+                    inv.put("resolutionNote", rs.getString("resolution_note"));
 
-                // Load discrepancy object for this case
-                try (PreparedStatement dps = conn.prepareStatement("SELECT * FROM discrepancies WHERE id = ? LIMIT 1")) {
-                    dps.setString(1, discId);
-                    try (ResultSet drs = dps.executeQuery()) {
-                        if (drs.next()) {
-                            Map<String, Object> d = new HashMap<>();
-                            d.put("id", drs.getString("id"));
-                            d.put("runId", drs.getString("run_id"));
-                            d.put("type", drs.getString("type"));
-                            d.put("severity", drs.getString("severity"));
-                            d.put("orderId", drs.getString("order_id"));
-                            d.put("explanation", drs.getString("explanation"));
-                            d.put("expectedAmount", drs.getBigDecimal("expected_amount") != null ? drs.getBigDecimal("expected_amount").toPlainString() : "0.00");
-                            d.put("actualAmount", drs.getBigDecimal("actual_amount") != null ? drs.getBigDecimal("actual_amount").toPlainString() : "0.00");
-                            d.put("variance", drs.getBigDecimal("variance") != null ? drs.getBigDecimal("variance").toPlainString() : "0.00");
-                            inv.put("discrepancy", d);
+                    // Load full discrepancy object for this case
+                    try (PreparedStatement dps = conn.prepareStatement("SELECT * FROM discrepancies WHERE id = ? LIMIT 1")) {
+                        dps.setString(1, discId);
+                        try (ResultSet drs = dps.executeQuery()) {
+                            if (drs.next()) {
+                                inv.put("discrepancy", mapDiscrepancyFromResultSet(conn, drs));
+                            }
                         }
-                    }
-                } catch (Exception ignored) {}
+                    } catch (Exception ignored) {}
 
-                // Load notes
-                List<Map<String, Object>> notes = new ArrayList<>();
-                try (PreparedStatement nps = conn.prepareStatement("SELECT * FROM investigation_notes WHERE investigation_id = ? ORDER BY created_at ASC")) {
-                    nps.setString(1, id);
-                    try (ResultSet nrs = nps.executeQuery()) {
-                        while (nrs.next()) {
-                            Map<String, Object> note = new HashMap<>();
-                            note.put("id", nrs.getString("id"));
-                            note.put("author", nrs.getString("author"));
-                            note.put("authorRole", nrs.getString("author_role"));
-                            note.put("text", nrs.getString("text"));
-                            note.put("timestamp", nrs.getTimestamp("created_at") != null ? nrs.getTimestamp("created_at").toInstant().toString() : Instant.now().toString());
-                            notes.add(note);
+                    // Load notes
+                    List<Map<String, Object>> notes = new ArrayList<>();
+                    try (PreparedStatement nps = conn.prepareStatement("SELECT * FROM investigation_notes WHERE investigation_id = ? ORDER BY created_at ASC")) {
+                        nps.setString(1, id);
+                        try (ResultSet nrs = nps.executeQuery()) {
+                            while (nrs.next()) {
+                                Map<String, Object> note = new HashMap<>();
+                                note.put("id", nrs.getString("id"));
+                                note.put("author", nrs.getString("author"));
+                                note.put("authorRole", nrs.getString("author_role"));
+                                note.put("text", nrs.getString("text"));
+                                note.put("timestamp", nrs.getTimestamp("created_at") != null ? nrs.getTimestamp("created_at").toInstant().toString() : Instant.now().toString());
+                                notes.add(note);
+                            }
                         }
-                    }
-                } catch (Exception ignored) {}
-                inv.put("notes", notes);
+                    } catch (Exception ignored) {}
+                    inv.put("notes", notes);
 
-                list.add(inv);
+                    list.add(inv);
+                }
+            }
+
+            // Self-healing: If investigations table is empty but runs/orders exist, heal the latest run!
+            if (list.isEmpty()) {
+                healMissingInvestigationsAndDiscrepancies(conn);
+                try (PreparedStatement ps = conn.prepareStatement("SELECT * FROM investigations ORDER BY created_at DESC LIMIT 50");
+                     ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        Map<String, Object> inv = new HashMap<>();
+                        String id = rs.getString("id");
+                        String discId = rs.getString("discrepancy_id");
+                        inv.put("id", id);
+                        inv.put("caseNumber", rs.getString("case_number"));
+                        inv.put("discrepancyId", discId);
+                        inv.put("runId", rs.getString("run_id"));
+                        inv.put("discrepancyType", rs.getString("discrepancy_type"));
+                        inv.put("severity", rs.getString("severity"));
+                        inv.put("status", rs.getString("status"));
+                        inv.put("priority", rs.getString("severity"));
+                        inv.put("varianceAmount", rs.getString("variance_amount"));
+                        inv.put("assignedAnalyst", rs.getString("assigned_analyst"));
+                        inv.put("assignedAnalystEmail", rs.getString("assigned_analyst_email"));
+                        inv.put("assignedTo", rs.getString("assigned_to"));
+                        inv.put("createdAt", rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toInstant().toString() : Instant.now().toString());
+                        inv.put("updatedAt", rs.getTimestamp("updated_at") != null ? rs.getTimestamp("updated_at").toInstant().toString() : Instant.now().toString());
+
+                        try (PreparedStatement dps = conn.prepareStatement("SELECT * FROM discrepancies WHERE id = ? LIMIT 1")) {
+                            dps.setString(1, discId);
+                            try (ResultSet drs = dps.executeQuery()) {
+                                if (drs.next()) {
+                                    inv.put("discrepancy", mapDiscrepancyFromResultSet(conn, drs));
+                                }
+                            }
+                        } catch (Exception ignored) {}
+                        inv.put("notes", new ArrayList<>());
+                        list.add(inv);
+                    }
+                }
             }
         } catch (Exception e) {
             System.err.println("Error reading investigations from TiDB: " + e.getMessage());
         }
         return list;
+    }
+
+    private void healMissingInvestigationsAndDiscrepancies(Connection conn) {
+        try {
+            String latestRunId = null;
+            String latestBatchId = null;
+            try (Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery("SELECT run_id, batch_id FROM reconciliation_runs ORDER BY created_at DESC LIMIT 1")) {
+                if (rs.next()) {
+                    latestRunId = rs.getString("run_id");
+                    latestBatchId = rs.getString("batch_id");
+                }
+            }
+            if (latestRunId == null) return;
+
+            List<OrderRecord> orders = latestBatchId != null ? loadOrdersFromDatabase(latestBatchId) : Collections.emptyList();
+            List<PaymentTransaction> payments = latestBatchId != null ? loadPaymentsFromDatabase(latestBatchId) : Collections.emptyList();
+            List<SettlementRecord> settlements = latestBatchId != null ? loadSettlementsFromDatabase(latestBatchId) : Collections.emptyList();
+
+            if (orders.isEmpty()) {
+                String latestDbBatch = getLatestBatchFromDatabase();
+                if (latestDbBatch != null) {
+                    orders = loadOrdersFromDatabase(latestDbBatch);
+                    payments = loadPaymentsFromDatabase(latestDbBatch);
+                    settlements = loadSettlementsFromDatabase(latestDbBatch);
+                    if (latestBatchId == null) latestBatchId = latestDbBatch;
+                }
+            }
+
+            if (orders.isEmpty()) return;
+
+            ReconciliationEngine engine = new ReconciliationEngine(new BigDecimal("0.05"));
+            ReconciliationResult result = engine.reconcile(latestRunId, orders, payments, settlements);
+
+            List<Map<String, Object>> discrepancyMaps = new ArrayList<>();
+            List<Map<String, Object>> newInvestigations = new ArrayList<>();
+            int invIndex = 101;
+
+            for (Discrepancy d : result.getDiscrepancies()) {
+                String severity = d.getVariance().abs().compareTo(new BigDecimal("100")) > 0 ? "HIGH" : "MEDIUM";
+                String caseNum = "INV-" + latestRunId.replace("RUN-", "") + "-" + (invIndex++);
+
+                Map<String, Object> map = new HashMap<>();
+                map.put("id", d.getId());
+                map.put("runId", latestRunId);
+                map.put("type", d.getType().name());
+                map.put("severity", severity);
+                map.put("orderId", d.getOrderId());
+                map.put("explanation", d.getExplanation());
+                map.put("expectedAmount", d.getExpectedAmount().toPlainString());
+                map.put("actualAmount", d.getActualAmount().toPlainString());
+                map.put("variance", d.getVariance().abs().toPlainString());
+                map.put("createdAt", Instant.now().toString());
+                discrepancyMaps.add(map);
+
+                Map<String, Object> inv = new HashMap<>();
+                inv.put("id", "INV-" + d.getId());
+                inv.put("caseNumber", caseNum);
+                inv.put("discrepancyId", d.getId());
+                inv.put("runId", latestRunId);
+                inv.put("discrepancyType", d.getType().name());
+                inv.put("severity", severity);
+                inv.put("status", "OPEN");
+                inv.put("priority", severity);
+                inv.put("varianceAmount", d.getVariance().abs().toPlainString());
+                inv.put("assignedAnalyst", "Sujith E");
+                inv.put("assignedAnalystEmail", "sujith@paytrace.fin");
+                inv.put("assignedTo", "Sujith E");
+                inv.put("createdAt", Instant.now().toString());
+                inv.put("updatedAt", Instant.now().toString());
+                newInvestigations.add(inv);
+            }
+
+            persistFullRunToDatabase(latestRunId, latestBatchId != null ? latestBatchId : "BATCH-101", result, discrepancyMaps, newInvestigations);
+            System.out.println("Auto-healed " + newInvestigations.size() + " investigations and discrepancies for run " + latestRunId);
+        } catch (Exception e) {
+            System.err.println("Could not auto-heal investigations: " + e.getMessage());
+        }
     }
 
     private List<OrderRecord> createDefaultOrders() {

@@ -18,7 +18,26 @@ interface ReconciliationContextType {
 const ReconciliationContext = createContext<ReconciliationContextType | undefined>(undefined);
 
 export const ReconciliationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [activeBatch, setActiveBatch] = useState<ImportBatch | null>(null);
+  const [activeBatch, setActiveBatchState] = useState<ImportBatch | null>(() => {
+    try {
+      const saved = sessionStorage.getItem('paytrace_active_batch');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const setActiveBatch = useCallback((batch: ImportBatch | null) => {
+    setActiveBatchState(batch);
+    try {
+      if (batch) {
+        sessionStorage.setItem('paytrace_active_batch', JSON.stringify(batch));
+      } else {
+        sessionStorage.removeItem('paytrace_active_batch');
+      }
+    } catch {}
+  }, []);
+
   const [activeRun, setActiveRun] = useState<ReconciliationRun | null>(null);
   const [investigations, setInvestigations] = useState<InvestigationCase[]>([]);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -67,7 +86,7 @@ export const ReconciliationProvider: React.FC<{ children: React.ReactNode }> = (
   const runReconciliation = async (tolerance: string = '0.05'): Promise<ReconciliationRun> => {
     setIsProcessing(true);
     try {
-      const batchId = activeBatch ? activeBatch.batchId : 'BATCH-DEMO-2026';
+      const batchId = activeBatch ? activeBatch.batchId : (isMockModeActive() ? 'BATCH-DEMO-2026' : '');
       const result = await apiClient.triggerReconciliation(batchId, tolerance);
       setActiveRun(result);
       await refreshInvestigations();

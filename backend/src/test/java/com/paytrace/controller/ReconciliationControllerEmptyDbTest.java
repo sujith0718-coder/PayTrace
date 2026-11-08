@@ -75,6 +75,88 @@ public class ReconciliationControllerEmptyDbTest {
     }
 
     @Test
+    @DisplayName("Trigger Run: Discrepancies with NULL order_id (UNMATCHED_SETTLEMENT) persist safely into DB alongside investigations")
+    void testTriggerRunPersistsDiscrepanciesAndInvestigationsWithNullOrderId() throws Exception {
+        // Insert sample records with an unmatched settlement into the test DB
+        try (Connection conn = dataSource.getConnection();
+             Statement stmt = conn.createStatement()) {
+            stmt.executeUpdate("INSERT INTO orders (order_id, batch_id, amount, status) VALUES ('ORD-1', 'BATCH-TEST-1', 100.00, 'PAID')");
+            stmt.executeUpdate("INSERT INTO payments (payment_id, batch_id, order_id, amount, status) VALUES ('PAY-1', 'BATCH-TEST-1', 'ORD-1', 100.00, 'SUCCESS')");
+            stmt.executeUpdate("INSERT INTO settlements (settlement_id, batch_id, payment_id, gross_amount, net_amount, fee, bank_reference) VALUES ('SET-UNMATCHED', 'BATCH-TEST-1', 'PAY-NONE', 50.00, 50.00, 0.00, 'REF-999')");
+        }
+
+        ResponseEntity<Map<String, Object>> runResp = controller.triggerRun(Map.of("batchId", "BATCH-TEST-1"));
+        assertEquals(HttpStatus.OK, runResp.getStatusCode());
+        assertNotNull(runResp.getBody());
+        String runId = (String) runResp.getBody().get("runId");
+        assertNotNull(runId);
+
+        // Verify discrepancies are persisted in DB
+        ResponseEntity<List<Map<String, Object>>> discResp = controller.getDiscrepancies(runId);
+        assertEquals(HttpStatus.OK, discResp.getStatusCode());
+        List<Map<String, Object>> discrepancies = discResp.getBody();
+        assertNotNull(discrepancies);
+        assertFalse(discrepancies.isEmpty(), "Discrepancies must be saved to DB and returned!");
+
+        // Verify unmatched settlement discrepancy has null orderId and safe persistence
+        boolean hasUnmatchedSettlement = false;
+        for (Map<String, Object> d : discrepancies) {
+            assertEquals(runId, d.get("runId"), "Every discrepancy must belong to runId");
+            if ("UNMATCHED_SETTLEMENT".equals(d.get("type"))) {
+                hasUnmatchedSettlement = true;
+                assertNull(d.get("orderId"), "UNMATCHED_SETTLEMENT must have null orderId");
+            }
+        }
+        assertTrue(hasUnmatchedSettlement, "Must contain an UNMATCHED_SETTLEMENT discrepancy");
+
+        // Verify investigations are persisted in DB
+        ResponseEntity<List<Map<String, Object>>> invResp = controller.getInvestigations();
+        assertEquals(HttpStatus.OK, invResp.getStatusCode());
+        List<Map<String, Object>> investigations = invResp.getBody();
+        assertNotNull(investigations);
+        assertEquals(discrepancies.size(), investigations.size(), "Investigation count must match discrepancy count in DB!");
+
+        for (Map<String, Object> inv : investigations) {
+            assertEquals(runId, inv.get("runId"));
+            assertNotNull(inv.get("caseNumber"));
+            assertNotNull(inv.get("discrepancyType"));
+            assertNotNull(inv.get("discrepancy"), "Investigation must contain hydrated discrepancy");
+        }
+    }
+
+    @Test
+    @DisplayName("Unique IDs: Multiple runs generate unique discrepancy IDs and investigation IDs without overwriting")
+    void testDiscrepancyAndInvestigationIdsAreUniqueAcrossRuns() {
+        ResponseEntity<Map<String, Object>> runResp1 = controller.triggerRun(Map.of("batchId", "BATCH-TEST-A"));
+        String runId1 = (String) runResp1.getBody().get("runId");
+
+        ResponseEntity<Map<String, Object>> runResp2 = controller.triggerRun(Map.of("batchId", "BATCH-TEST-B"));
+        String runId2 = (String) runResp2.getBody().get("runId");
+
+        assertNotEquals(runId1, runId2, "Run IDs must be distinct");
+
+        List<Map<String, Object>> discs1 = controller.getDiscrepancies(runId1).getBody();
+        List<Map<String, Object>> discs2 = controller.getDiscrepancies(runId2).getBody();
+
+        assertNotNull(discs1);
+        assertNotNull(discs2);
+        assertFalse(discs1.isEmpty());
+        assertFalse(discs2.isEmpty());
+
+        // IDs must not collide
+        for (Map<String, Object> d1 : discs1) {
+            for (Map<String, Object> d2 : discs2) {
+                assertNotEquals(d1.get("id"), d2.get("id"), "Discrepancy IDs must be globally unique across runs");
+            }
+        }
+
+        // Investigations in DB must contain both runs
+        List<Map<String, Object>> allInvs = controller.getInvestigations().getBody();
+        assertNotNull(allInvs);
+        assertEquals(discs1.size() + discs2.size(), allInvs.size(), "All investigations from both runs must be preserved");
+    }
+
+    @Test
     @DisplayName("Demo Mode (no DataSource): starter data is retained for standalone offline preview")
     void testDemoModeStandalone() {
         ReconciliationController demoController = new ReconciliationController();
