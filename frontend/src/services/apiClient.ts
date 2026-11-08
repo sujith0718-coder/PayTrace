@@ -34,6 +34,9 @@ export const toggleMockMode = (): boolean => {
   return !current;
 };
 
+// Default Render Production Backend URL
+const RENDER_PROD_URL = 'https://paytrace-lj2l.onrender.com/api';
+
 // Intelligently resolve the API base URL across Vercel, Render, and Localhost
 const getNormalizedBaseUrl = (): string => {
   const envUrl = import.meta.env.VITE_API_BASE_URL;
@@ -41,13 +44,10 @@ const getNormalizedBaseUrl = (): string => {
     const trimmed = envUrl.trim().replace(/\/+$/, '');
     return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
   }
-  if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
-    return 'https://paytrace-lj2l.onrender.com/api';
-  }
-  return 'http://localhost:10000/api';
+  return RENDER_PROD_URL;
 };
 
-const API_BASE_URL = getNormalizedBaseUrl();
+let activeApiBaseUrl = getNormalizedBaseUrl();
 
 // Local storage keys for persisting state during demo
 const STORAGE_KEYS = {
@@ -68,42 +68,52 @@ if (typeof window !== 'undefined') {
 
 class ApiClient {
   public getBaseUrl(): string {
-    return API_BASE_URL;
+    return activeApiBaseUrl;
   }
 
   public async checkHealth(): Promise<{ isLive: boolean; dbStatus: string; url: string }> {
-    const rootUrl = API_BASE_URL.replace(/\/api$/, '');
-    const candidateUrls = [
-      `${API_BASE_URL}/health`,
-      `${rootUrl}/health`,
-      `${API_BASE_URL}/`,
-      `${rootUrl}/`
+    const candidateBaseUrls = [
+      activeApiBaseUrl,
+      RENDER_PROD_URL,
+      'http://localhost:10000/api'
     ];
+    const uniqueBaseUrls = Array.from(new Set(candidateBaseUrls.filter(Boolean)));
 
-    for (const u of candidateUrls) {
-      try {
-        const resp = await fetch(u, { signal: AbortSignal.timeout(4000) });
-        if (resp.ok) {
-          const data = await resp.json();
-          return {
-            isLive: true,
-            dbStatus: data?.database?.status || 'CONNECTED',
-            url: u
-          };
-        }
-      } catch {}
+    for (const baseUrl of uniqueBaseUrls) {
+      const rootUrl = baseUrl.replace(/\/api$/, '');
+      const candidateEndpoints = [
+        `${baseUrl}/health`,
+        `${rootUrl}/health`,
+        `${baseUrl}/`,
+        `${rootUrl}/`
+      ];
+
+      for (const u of candidateEndpoints) {
+        try {
+          const resp = await fetch(u, { signal: AbortSignal.timeout(15000) });
+          if (resp.ok) {
+            const data = await resp.json();
+            activeApiBaseUrl = baseUrl;
+            return {
+              isLive: true,
+              dbStatus: data?.database?.status || 'CONNECTED',
+              url: baseUrl
+            };
+          }
+        } catch {}
+      }
     }
 
     return {
       isLive: false,
       dbStatus: 'OFFLINE',
-      url: API_BASE_URL
+      url: activeApiBaseUrl
     };
   }
 
   public async getDatabaseSummary(): Promise<any> {
     try {
-      const resp = await fetch(`${API_BASE_URL}/database-summary`, {
+      const resp = await fetch(`${this.getBaseUrl()}/database-summary`, {
         headers: this.getAuthHeader()
       });
       if (resp.ok) {
@@ -137,7 +147,7 @@ class ApiClient {
   public async login(email: string, _pass: string): Promise<AuthResponse> {
     if (!isMockModeActive()) {
       try {
-        const resp = await fetch(`${API_BASE_URL}/auth/login`, {
+        const resp = await fetch(`${this.getBaseUrl()}/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password: _pass })
@@ -172,7 +182,7 @@ class ApiClient {
   public async register(fullName: string, email: string, _pass: string): Promise<AuthResponse> {
     if (!isMockModeActive()) {
       try {
-        const resp = await fetch(`${API_BASE_URL}/auth/register`, {
+        const resp = await fetch(`${this.getBaseUrl()}/auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fullName, email, password: _pass })
@@ -244,7 +254,7 @@ class ApiClient {
       formData.append('paymentsFile', payments);
       formData.append('settlementsFile', settlements);
 
-      const resp = await fetch(`${API_BASE_URL}/imports/upload`, {
+      const resp = await fetch(`${this.getBaseUrl()}/imports/upload`, {
         method: 'POST',
         headers: this.getAuthHeader(),
         body: formData
@@ -349,7 +359,7 @@ class ApiClient {
   // RECONCILIATION RUNS
   public async triggerReconciliation(batchId: string, tolerance: string = '0.05'): Promise<ReconciliationRun> {
     if (!isMockModeActive()) {
-      const resp = await fetch(`${API_BASE_URL}/reconciliation-runs`, {
+      const resp = await fetch(`${this.getBaseUrl()}/reconciliation-runs`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -573,7 +583,7 @@ class ApiClient {
 
   public async getAllRuns(): Promise<ReconciliationRun[]> {
     if (!isMockModeActive()) {
-      const resp = await fetch(`${API_BASE_URL}/reconciliation-runs`, {
+      const resp = await fetch(`${this.getBaseUrl()}/reconciliation-runs`, {
         headers: this.getAuthHeader()
       });
       if (resp.ok) {
@@ -594,7 +604,7 @@ class ApiClient {
 
   public async getReconciliationRun(_runId: string): Promise<ReconciliationRun | null> {
     if (!isMockModeActive()) {
-      const resp = await fetch(`${API_BASE_URL}/reconciliation-runs/${_runId}`, {
+      const resp = await fetch(`${this.getBaseUrl()}/reconciliation-runs/${_runId}`, {
         headers: this.getAuthHeader()
       });
       if (resp.ok) {
@@ -612,7 +622,7 @@ class ApiClient {
 
   public async getDiscrepancies(_runId: string): Promise<DiscrepancyItem[]> {
     if (!isMockModeActive()) {
-      const resp = await fetch(`${API_BASE_URL}/reconciliation-runs/${_runId}/discrepancies`, {
+      const resp = await fetch(`${this.getBaseUrl()}/reconciliation-runs/${_runId}/discrepancies`, {
         headers: this.getAuthHeader()
       });
       if (resp.ok) {
@@ -676,7 +686,7 @@ class ApiClient {
   // INVESTIGATIONS
   public async getInvestigations(): Promise<InvestigationCase[]> {
     if (!isMockModeActive()) {
-      const resp = await fetch(`${API_BASE_URL}/investigations`, {
+      const resp = await fetch(`${this.getBaseUrl()}/investigations`, {
         headers: this.getAuthHeader()
       });
       if (resp.ok) {
@@ -699,7 +709,7 @@ class ApiClient {
     resolutionNote?: string
   ): Promise<InvestigationCase> {
     if (!isMockModeActive()) {
-      const resp = await fetch(`${API_BASE_URL}/investigations/${caseId}`, {
+      const resp = await fetch(`${this.getBaseUrl()}/investigations/${caseId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -760,7 +770,7 @@ class ApiClient {
 
   public async addInvestigationNote(caseId: string, text: string): Promise<any> {
     if (!isMockModeActive()) {
-      const resp = await fetch(`${API_BASE_URL}/investigations/${caseId}/notes`, {
+      const resp = await fetch(`${this.getBaseUrl()}/investigations/${caseId}/notes`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -809,7 +819,7 @@ class ApiClient {
   public async getAuditLogs(): Promise<AuditLogItem[]> {
     if (!isMockModeActive()) {
       try {
-        const resp = await fetch(`${API_BASE_URL}/audit-logs`, {
+        const resp = await fetch(`${this.getBaseUrl()}/audit-logs`, {
           headers: this.getAuthHeader()
         });
         if (resp.ok) {

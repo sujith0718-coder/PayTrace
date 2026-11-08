@@ -30,6 +30,14 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
   };
 
+  const handleBadgeClick = () => {
+    if (!isMock && !isLive) {
+      checkConnection();
+    } else {
+      toggleMockMode();
+    }
+  };
+
   useEffect(() => {
     checkConnection();
     const interval = setInterval(checkConnection, 15000);
@@ -65,14 +73,24 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="flex items-center gap-3">
         {/* Dynamic Live Cloud / Mock Mode Toggle Badge */}
         <button
-          onClick={toggleMockMode}
-          title={isMock ? "Currently in Demo Mock Mode. Click to switch to Live Backend!" : "Currently in Live Cloud Mode. Click to switch to Demo Mocks!"}
+          onClick={handleBadgeClick}
+          title={
+            !isMock && isLive
+              ? "Live backend connected. Click to switch to Demo Mocks."
+              : isMock
+              ? "Currently in Demo Mode. Click to switch to Live Backend!"
+              : checking
+              ? "Connecting to Render Cloud & TiDB... Please wait."
+              : "Unable to reach backend. Click to retry connection."
+          }
           className={`hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full border text-[11px] font-mono transition-all cursor-pointer ${
             !isMock && isLive
               ? 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100'
               : isMock
               ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100'
-              : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
+              : checking
+              ? 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
+              : 'bg-rose-50 border-rose-300 text-rose-800 hover:bg-rose-100'
           }`}
         >
           {!isMock && isLive ? (
@@ -87,10 +105,15 @@ export const Navbar: React.FC<NavbarProps> = ({
               <CloudOff className="w-3.5 h-3.5 text-amber-600" />
               <span>DEMO MOCKS (Click for Live)</span>
             </>
+          ) : checking ? (
+            <>
+              <RefreshCw className="w-3.5 h-3.5 text-slate-500 animate-spin" />
+              <span>CONNECTING CLOUD...</span>
+            </>
           ) : (
             <>
-              <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${checking ? 'animate-spin' : ''}`} />
-              <span>CONNECTING CLOUD...</span>
+              <CloudOff className="w-3.5 h-3.5 text-rose-600" />
+              <span className="font-bold">OFFLINE (Click to Retry)</span>
             </>
           )}
         </button>
