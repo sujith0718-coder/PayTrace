@@ -47,17 +47,24 @@ const getNormalizedBaseUrl = (): string => {
   return 'http://localhost:10000/api';
 };
 
-const USE_MOCKS = isMockModeActive();
 const API_BASE_URL = getNormalizedBaseUrl();
 
 // Local storage keys for persisting state during demo
 const STORAGE_KEYS = {
   TOKEN: 'paytrace_auth_token',
   USER: 'paytrace_auth_user',
-  INVESTIGATIONS: 'paytrace_investigations',
-  RUNS: 'paytrace_runs',
+  DEMO_INVESTIGATIONS: 'paytrace_demo_investigations',
+  DEMO_RUNS: 'paytrace_demo_runs',
   AUDIT: 'paytrace_audit_logs',
 };
+
+// Clean up legacy keys that may contain stale mock investigations
+if (typeof window !== 'undefined') {
+  try {
+    localStorage.removeItem('paytrace_investigations');
+    localStorage.removeItem('paytrace_runs');
+  } catch {}
+}
 
 class ApiClient {
   public getBaseUrl(): string {
@@ -111,24 +118,24 @@ class ApiClient {
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
-  private getLocalInvestigations(): InvestigationCase[] {
-    const stored = localStorage.getItem(STORAGE_KEYS.INVESTIGATIONS);
+  private getLocalDemoInvestigations(): InvestigationCase[] {
+    const stored = localStorage.getItem(STORAGE_KEYS.DEMO_INVESTIGATIONS);
     if (stored) {
       try {
         return JSON.parse(stored);
       } catch {}
     }
-    localStorage.setItem(STORAGE_KEYS.INVESTIGATIONS, JSON.stringify(MOCK_INVESTIGATIONS));
+    localStorage.setItem(STORAGE_KEYS.DEMO_INVESTIGATIONS, JSON.stringify(MOCK_INVESTIGATIONS));
     return MOCK_INVESTIGATIONS;
   }
 
-  private saveLocalInvestigations(cases: InvestigationCase[]) {
-    localStorage.setItem(STORAGE_KEYS.INVESTIGATIONS, JSON.stringify(cases));
+  private saveLocalDemoInvestigations(cases: InvestigationCase[]) {
+    localStorage.setItem(STORAGE_KEYS.DEMO_INVESTIGATIONS, JSON.stringify(cases));
   }
 
   // AUTH
   public async login(email: string, _pass: string): Promise<AuthResponse> {
-    if (!USE_MOCKS) {
+    if (!isMockModeActive()) {
       try {
         const resp = await fetch(`${API_BASE_URL}/auth/login`, {
           method: 'POST',
@@ -163,7 +170,7 @@ class ApiClient {
   }
 
   public async register(fullName: string, email: string, _pass: string): Promise<AuthResponse> {
-    if (!USE_MOCKS) {
+    if (!isMockModeActive()) {
       try {
         const resp = await fetch(`${API_BASE_URL}/auth/register`, {
           method: 'POST',
@@ -231,7 +238,7 @@ class ApiClient {
     payments: File, 
     settlements: File
   ): Promise<ImportBatch> {
-    if (!USE_MOCKS) {
+    if (!isMockModeActive()) {
       const formData = new FormData();
       formData.append('ordersFile', orders);
       formData.append('paymentsFile', payments);
@@ -341,7 +348,7 @@ class ApiClient {
 
   // RECONCILIATION RUNS
   public async triggerReconciliation(batchId: string, tolerance: string = '0.05'): Promise<ReconciliationRun> {
-    if (!USE_MOCKS) {
+    if (!isMockModeActive()) {
       const resp = await fetch(`${API_BASE_URL}/reconciliation-runs`, {
         method: 'POST',
         headers: {
@@ -351,9 +358,7 @@ class ApiClient {
         body: JSON.stringify({ batchId, toleranceAmount: tolerance })
       });
       if (resp.ok) {
-        const run = await resp.json();
-        localStorage.setItem(STORAGE_KEYS.RUNS, JSON.stringify(run));
-        return run;
+        return await resp.json();
       } else {
         const errText = await resp.text();
         throw new Error(`Reconciliation trigger failed (${resp.status}): ${errText}`);
@@ -543,7 +548,7 @@ class ApiClient {
       discrepancies
     };
 
-    localStorage.setItem(STORAGE_KEYS.RUNS, JSON.stringify(demoRun));
+    localStorage.setItem(STORAGE_KEYS.DEMO_RUNS, JSON.stringify(demoRun));
 
     // Also generate investigations for demo mode
     const demoCases: InvestigationCase[] = discrepancies.map((d, i) => ({
@@ -561,18 +566,42 @@ class ApiClient {
       discrepancy: d,
       notes: []
     }));
-    this.saveLocalInvestigations(demoCases);
+    this.saveLocalDemoInvestigations(demoCases);
 
     return demoRun;
   }
 
-  public async getReconciliationRun(_runId: string): Promise<ReconciliationRun> {
-    if (!USE_MOCKS) {
+  public async getAllRuns(): Promise<ReconciliationRun[]> {
+    if (!isMockModeActive()) {
+      const resp = await fetch(`${API_BASE_URL}/reconciliation-runs`, {
+        headers: this.getAuthHeader()
+      });
+      if (resp.ok) {
+        return await resp.json();
+      }
+      throw new Error(`Failed to fetch reconciliation runs: HTTP ${resp.status}`);
+    }
+
+    const stored = localStorage.getItem(STORAGE_KEYS.DEMO_RUNS);
+    if (stored) {
+      try {
+        const run = JSON.parse(stored);
+        return [run];
+      } catch {}
+    }
+    return [MOCK_RECONCILIATION_RUN];
+  }
+
+  public async getReconciliationRun(_runId: string): Promise<ReconciliationRun | null> {
+    if (!isMockModeActive()) {
       const resp = await fetch(`${API_BASE_URL}/reconciliation-runs/${_runId}`, {
         headers: this.getAuthHeader()
       });
       if (resp.ok) {
         return await resp.json();
+      }
+      if (resp.status === 404) {
+        return null;
       }
       throw new Error(`Failed to fetch reconciliation run ${_runId}: HTTP ${resp.status}`);
     }
@@ -582,7 +611,7 @@ class ApiClient {
   }
 
   public async getDiscrepancies(_runId: string): Promise<DiscrepancyItem[]> {
-    if (!USE_MOCKS) {
+    if (!isMockModeActive()) {
       const resp = await fetch(`${API_BASE_URL}/reconciliation-runs/${_runId}/discrepancies`, {
         headers: this.getAuthHeader()
       });
@@ -593,7 +622,7 @@ class ApiClient {
       }
     }
 
-    const stored = localStorage.getItem(STORAGE_KEYS.RUNS);
+    const stored = localStorage.getItem(STORAGE_KEYS.DEMO_RUNS);
     if (stored) {
       try {
         const run: ReconciliationRun = JSON.parse(stored);
@@ -646,14 +675,13 @@ class ApiClient {
 
   // INVESTIGATIONS
   public async getInvestigations(): Promise<InvestigationCase[]> {
-    if (!USE_MOCKS) {
+    if (!isMockModeActive()) {
       const resp = await fetch(`${API_BASE_URL}/investigations`, {
         headers: this.getAuthHeader()
       });
       if (resp.ok) {
         const rawList = await resp.json();
         const list = Array.isArray(rawList) ? rawList.map((c, i) => this.normalizeInvestigationCase(c, i)) : [];
-        this.saveLocalInvestigations(list);
         return list;
       } else {
         throw new Error(`Failed to fetch investigations: HTTP ${resp.status}`);
@@ -661,7 +689,7 @@ class ApiClient {
     }
 
     await new Promise(r => setTimeout(r, 200));
-    return this.getLocalInvestigations().map((c, i) => this.normalizeInvestigationCase(c, i));
+    return this.getLocalDemoInvestigations().map((c, i) => this.normalizeInvestigationCase(c, i));
   }
 
   public async updateInvestigationStatus(
@@ -670,26 +698,31 @@ class ApiClient {
     resolutionCategory?: ResolutionCategory, 
     resolutionNote?: string
   ): Promise<InvestigationCase> {
-    if (!USE_MOCKS) {
-      try {
-        const resp = await fetch(`${API_BASE_URL}/investigations/${caseId}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            ...this.getAuthHeader()
-          },
-          body: JSON.stringify({ status, resolutionCategory, note: resolutionNote })
-        });
-        if (resp.ok) {
-          return await resp.json();
-        }
-      } catch (err) {
-        console.warn('Backend update investigation unavailable, saving locally:', err);
+    if (!isMockModeActive()) {
+      const resp = await fetch(`${API_BASE_URL}/investigations/${caseId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.getAuthHeader()
+        },
+        body: JSON.stringify({ 
+          status, 
+          resolutionCategory, 
+          resolutionNote,
+          note: resolutionNote 
+        })
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        return this.normalizeInvestigationCase(data);
+      } else {
+        const errText = await resp.text();
+        throw new Error(`Failed to update investigation case (${resp.status}): ${errText}`);
       }
     }
 
     await new Promise(r => setTimeout(r, 300));
-    const list = this.getLocalInvestigations();
+    const list = this.getLocalDemoInvestigations();
     const idx = list.findIndex(c => c.id === caseId);
     if (idx === -1) throw new Error('Investigation case not found');
     
@@ -721,59 +754,60 @@ class ApiClient {
     }
 
     list[idx] = updated;
-    this.saveLocalInvestigations(list);
+    this.saveLocalDemoInvestigations(list);
     return updated;
   }
 
-  public async addInvestigationNote(caseId: string, text: string): Promise<InvestigationCase> {
-    if (!USE_MOCKS) {
-      try {
-        const resp = await fetch(`${API_BASE_URL}/investigations/${caseId}/notes`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...this.getAuthHeader()
-          },
-          body: JSON.stringify({ text })
-        });
-        if (resp.ok) {
-          return await resp.json();
-        }
-      } catch (err) {
-        console.warn('Backend add note unavailable, saving locally:', err);
+  public async addInvestigationNote(caseId: string, text: string): Promise<any> {
+    if (!isMockModeActive()) {
+      const resp = await fetch(`${API_BASE_URL}/investigations/${caseId}/notes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.getAuthHeader()
+        },
+        body: JSON.stringify({ text })
+      });
+      if (resp.ok) {
+        return await resp.json();
+      } else {
+        const errText = await resp.text();
+        throw new Error(`Failed to add note (${resp.status}): ${errText}`);
       }
     }
 
     await new Promise(r => setTimeout(r, 200));
-    const list = this.getLocalInvestigations();
+    const list = this.getLocalDemoInvestigations();
     const idx = list.findIndex(c => c.id === caseId);
     if (idx === -1) throw new Error('Investigation case not found');
 
     const user = this.getCurrentUser();
     const authorName = user?.fullName || 'Analyst';
 
+    const newNoteObj = {
+      id: `NOTE-${Date.now()}`,
+      author: authorName,
+      authorRole: 'Analyst',
+      timestamp: new Date().toISOString(),
+      text
+    };
+
     const updated: InvestigationCase = {
       ...list[idx],
       updatedAt: new Date().toISOString(),
       notes: [
         ...list[idx].notes,
-        {
-          id: `NOTE-${Date.now()}`,
-          author: authorName,
-          authorRole: 'Analyst',
-          timestamp: new Date().toISOString(),
-          text
-        }
+        newNoteObj
       ]
     };
     list[idx] = updated;
-    this.saveLocalInvestigations(list);
-    return updated;
+    this.saveLocalDemoInvestigations(list);
+    return newNoteObj;
   }
 
   // AUDIT LOGS
   public async getAuditLogs(): Promise<AuditLogItem[]> {
-    if (!USE_MOCKS) {
+    if (!isMockModeActive()) {
       try {
         const resp = await fetch(`${API_BASE_URL}/audit-logs`, {
           headers: this.getAuthHeader()

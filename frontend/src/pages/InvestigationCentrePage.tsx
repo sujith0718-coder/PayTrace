@@ -18,15 +18,20 @@ import { Modal } from '../components/ui/Modal';
 import { useReconciliation } from '../context/ReconciliationContext';
 import { useAudio } from '../context/AudioContext';
 import { InvestigationCase, InvestigationStatus, ResolutionCategory } from '../types/api';
-import { apiClient } from '../services/apiClient';
+import { apiClient, isMockModeActive } from '../services/apiClient';
 import { formatCurrency, formatDate } from '../utils/formatters';
 
 interface InvestigationCentrePageProps {
   onNavigate: (path: string) => void;
 }
 
-export const InvestigationCentrePage: React.FC<InvestigationCentrePageProps> = () => {
-  const { investigations, refreshInvestigations } = useReconciliation();
+export const InvestigationCentrePage: React.FC<InvestigationCentrePageProps> = ({ onNavigate }) => {
+  const { 
+    investigations, 
+    refreshInvestigations,
+    isLoadingInvestigations,
+    investigationsError
+  } = useReconciliation();
   const { playStamp, playSuccess, playClick } = useAudio();
 
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
@@ -109,7 +114,70 @@ export const InvestigationCentrePage: React.FC<InvestigationCentrePageProps> = (
       </div>
 
       {/* Dual Pane Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      {isLoadingInvestigations ? (
+        <Card variant="white" className="p-16 text-center border-slate-200 shadow-sm">
+          <div className="w-10 h-10 border-4 border-gold-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-sm font-semibold text-slate-700">Loading investigations from database...</p>
+          <p className="text-xs text-slate-400 mt-1">Connecting to TiDB Cloud backend...</p>
+        </Card>
+      ) : investigationsError && !isMockModeActive() ? (
+        <Card variant="white" className="p-8 md:p-12 text-center border-red-200 bg-red-50/20 max-w-2xl mx-auto shadow-sm">
+          <div className="w-14 h-14 rounded-2xl bg-red-100 flex items-center justify-center mx-auto mb-4 text-red-600">
+            <AlertCircle className="w-7 h-7" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight">
+            Unable to connect to PayTrace backend
+          </h2>
+          <p className="text-xs font-mono text-slate-500 mt-2 bg-slate-100 p-2 rounded max-w-md mx-auto break-all">
+            {apiClient.getBaseUrl()}/investigations
+          </p>
+          <p className="text-xs text-red-600 font-medium mt-2">
+            {investigationsError}
+          </p>
+          <div className="mt-6 flex justify-center">
+            <Button
+              variant="primary-gold"
+              size="sm"
+              onClick={() => refreshInvestigations()}
+              leftIcon={<RotateCcw className="w-4 h-4" />}
+            >
+              Retry Connection
+            </Button>
+          </div>
+        </Card>
+      ) : (!investigations || investigations.length === 0) ? (
+        <Card variant="white" className="p-10 md:p-16 text-center border-slate-200 max-w-2xl mx-auto shadow-sm">
+          <div className="w-16 h-16 rounded-2xl bg-gold-500/10 border border-gold-500/20 flex items-center justify-center mx-auto mb-5 text-gold-600">
+            <FileSearch className="w-8 h-8" />
+          </div>
+          <h2 className="text-2xl font-extrabold text-navy-950 font-sans tracking-tight">
+            No Investigations Yet
+          </h2>
+          <p className="text-sm font-medium text-slate-600 mt-2">
+            There are currently no investigation records.
+          </p>
+          <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+            Upload your Orders, Payments and Settlements CSV files and run reconciliation to generate investigation cases.
+          </p>
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Button
+              variant="primary-gold"
+              size="md"
+              onClick={() => onNavigate('/import')}
+            >
+              Upload CSV Files
+            </Button>
+            <Button
+              variant="secondary-navy"
+              size="md"
+              onClick={() => onNavigate('/reconcile')}
+            >
+              Open Reconciliation Workspace
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Pane: Case Queue (4 cols) */}
         <div className="lg:col-span-4 space-y-4">
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
@@ -323,6 +391,7 @@ export const InvestigationCentrePage: React.FC<InvestigationCentrePageProps> = (
           )}
         </div>
       </div>
+    )}
 
       {/* Resolution Modal */}
       <Modal

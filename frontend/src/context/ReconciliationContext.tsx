@@ -1,13 +1,16 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { ReconciliationRun, ImportBatch, InvestigationCase } from '../types/api';
-import { apiClient } from '../services/apiClient';
+import { apiClient, isMockModeActive } from '../services/apiClient';
 
 interface ReconciliationContextType {
   activeBatch: ImportBatch | null;
   activeRun: ReconciliationRun | null;
   investigations: InvestigationCase[];
   isProcessing: boolean;
+  isLoadingInvestigations: boolean;
+  investigationsError: string | null;
   setActiveBatch: (batch: ImportBatch | null) => void;
+  setActiveRun: (run: ReconciliationRun | null) => void;
   runReconciliation: (tolerance?: string) => Promise<ReconciliationRun>;
   refreshInvestigations: () => Promise<void>;
 }
@@ -19,23 +22,47 @@ export const ReconciliationProvider: React.FC<{ children: React.ReactNode }> = (
   const [activeRun, setActiveRun] = useState<ReconciliationRun | null>(null);
   const [investigations, setInvestigations] = useState<InvestigationCase[]>([]);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [isLoadingInvestigations, setIsLoadingInvestigations] = useState<boolean>(true);
+  const [investigationsError, setInvestigationsError] = useState<string | null>(null);
 
-  const refreshInvestigations = async () => {
+  const refreshInvestigations = useCallback(async () => {
+    setIsLoadingInvestigations(true);
+    setInvestigationsError(null);
     try {
       const cases = await apiClient.getInvestigations();
-      setInvestigations(cases);
-    } catch (err) {
+      setInvestigations(cases || []);
+    } catch (err: any) {
       console.error('Failed to load investigations', err);
+      setInvestigationsError(err?.message || 'Unable to connect to PayTrace backend.');
+      setInvestigations([]);
+    } finally {
+      setIsLoadingInvestigations(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     refreshInvestigations();
-    // Default mock run for demo preview
-    apiClient.getReconciliationRun('RUN-2026-901').then(run => {
-      setActiveRun(run);
-    }).catch(() => {});
-  }, []);
+
+    if (!isMockModeActive()) {
+      // In Live Mode: only fetch actual runs from the backend
+      apiClient.getAllRuns().then(runs => {
+        if (runs && runs.length > 0) {
+          setActiveRun(runs[0]);
+        } else {
+          setActiveRun(null);
+        }
+      }).catch(() => {
+        setActiveRun(null);
+      });
+    } else {
+      // In Demo Mode: load stored demo run or fallback
+      apiClient.getAllRuns().then(runs => {
+        if (runs && runs.length > 0) {
+          setActiveRun(runs[0]);
+        }
+      }).catch(() => {});
+    }
+  }, [refreshInvestigations]);
 
   const runReconciliation = async (tolerance: string = '0.05'): Promise<ReconciliationRun> => {
     setIsProcessing(true);
@@ -56,7 +83,10 @@ export const ReconciliationProvider: React.FC<{ children: React.ReactNode }> = (
       activeRun,
       investigations,
       isProcessing,
+      isLoadingInvestigations,
+      investigationsError,
       setActiveBatch,
+      setActiveRun,
       runReconciliation,
       refreshInvestigations
     }}>
@@ -70,4 +100,3 @@ export const useReconciliation = () => {
   if (!ctx) throw new Error('useReconciliation must be used within a ReconciliationProvider');
   return ctx;
 };
-

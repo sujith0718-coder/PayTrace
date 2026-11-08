@@ -30,6 +30,10 @@ public class ReconciliationController {
     @Autowired(required = false)
     private DataSource dataSource;
 
+    public void setDataSource(DataSource dataSource) {
+        this.dataSource = dataSource;
+    }
+
     private final CsvImportService csvImportService = new CsvImportService();
 
     private final Map<String, List<OrderRecord>> batchOrders = new ConcurrentHashMap<>();
@@ -166,7 +170,9 @@ public class ReconciliationController {
             }
         }
 
-        initStarterData();
+        if (dataSource == null) {
+            initStarterData();
+        }
     }
 
     private void safeAddColumn(Statement stmt, String table, String column, String colType) {
@@ -462,9 +468,6 @@ public class ReconciliationController {
 
     @GetMapping({"/reconciliation-runs", "/api/reconciliation-runs"})
     public ResponseEntity<List<Map<String, Object>>> getAllRuns() {
-        if (!runsCache.isEmpty()) {
-            return ResponseEntity.ok(new ArrayList<>(runsCache.values()));
-        }
         if (dataSource != null) {
             List<Map<String, Object>> list = new ArrayList<>();
             try (Connection conn = dataSource.getConnection();
@@ -481,58 +484,52 @@ public class ReconciliationController {
                     metrics.put("matchedRecords", rs.getInt("matched_records"));
                     metrics.put("discrepanciesCount", rs.getInt("discrepancies_count"));
                     metrics.put("reconciliationPercentage", rs.getDouble("match_percentage"));
-                    metrics.put("totalOrderValue", rs.getBigDecimal("total_order_value"));
-                    metrics.put("totalSettledValue", rs.getBigDecimal("total_settled_value"));
+                    metrics.put("totalOrderValue", rs.getBigDecimal("total_order_value") != null ? rs.getBigDecimal("total_order_value").toPlainString() : "0.00");
+                    metrics.put("totalSettledValue", rs.getBigDecimal("total_settled_value") != null ? rs.getBigDecimal("total_settled_value").toPlainString() : "0.00");
                     r.put("metrics", metrics);
                     list.add(r);
                 }
-            } catch (Exception ignored) {}
-            if (!list.isEmpty()) return ResponseEntity.ok(list);
+            } catch (Exception e) {
+                System.err.println("Error reading reconciliation_runs from TiDB: " + e.getMessage());
+            }
+            return ResponseEntity.ok(list);
         }
-        return ResponseEntity.ok(List.of(createStarterRun()));
+        if (!runsCache.isEmpty()) {
+            return ResponseEntity.ok(new ArrayList<>(runsCache.values()));
+        }
+        return ResponseEntity.ok(List.of());
     }
 
     @GetMapping({"/reconciliation-runs/{runId}", "/api/reconciliation-runs/{runId}"})
     public ResponseEntity<Map<String, Object>> getRun(@PathVariable String runId) {
-        if (runsCache.containsKey(runId)) {
-            return ResponseEntity.ok(runsCache.get(runId));
-        }
         if (dataSource != null) {
             Map<String, Object> dbRun = loadRunFromDb(runId);
             if (dbRun != null) {
-                runsCache.put(runId, dbRun);
                 return ResponseEntity.ok(dbRun);
             }
+            return ResponseEntity.notFound().build();
         }
-        if (!runsCache.isEmpty()) {
-            return ResponseEntity.ok(runsCache.values().iterator().next());
+        if (runsCache.containsKey(runId)) {
+            return ResponseEntity.ok(runsCache.get(runId));
         }
-        return ResponseEntity.ok(createStarterRun());
+        return ResponseEntity.notFound().build();
     }
 
     @GetMapping({"/reconciliation-runs/{runId}/discrepancies", "/api/reconciliation-runs/{runId}/discrepancies"})
     public ResponseEntity<List<Map<String, Object>>> getDiscrepancies(@PathVariable String runId) {
+        if (dataSource != null) {
+            return ResponseEntity.ok(loadDiscrepanciesFromDb(runId));
+        }
         if (runDiscrepanciesCache.containsKey(runId)) {
             return ResponseEntity.ok(runDiscrepanciesCache.get(runId));
-        }
-        if (dataSource != null) {
-            List<Map<String, Object>> dbList = loadDiscrepanciesFromDb(runId);
-            if (!dbList.isEmpty()) {
-                runDiscrepanciesCache.put(runId, dbList);
-                return ResponseEntity.ok(dbList);
-            }
         }
         return ResponseEntity.ok(List.of());
     }
 
     @GetMapping({"/investigations", "/api/investigations"})
     public ResponseEntity<List<Map<String, Object>>> getInvestigations() {
-        if (investigationsCache.isEmpty() && dataSource != null) {
-            List<Map<String, Object>> dbList = loadInvestigationsFromDb();
-            if (!dbList.isEmpty()) {
-                investigationsCache.addAll(dbList);
-                return ResponseEntity.ok(dbList);
-            }
+        if (dataSource != null) {
+            return ResponseEntity.ok(loadInvestigationsFromDb());
         }
         return ResponseEntity.ok(new ArrayList<>(investigationsCache));
     }
