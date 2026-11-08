@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   FileSpreadsheet, 
   AlertCircle, 
@@ -14,7 +14,9 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { CountUp } from '../components/ui/CountUp';
 import { useReconciliation } from '../context/ReconciliationContext';
-import { formatCurrency, formatNumber } from '../utils/cn';
+import { formatCurrency } from '../utils/formatters';
+import { formatNumber } from '../utils/cn';
+import { apiClient } from '../services/apiClient';
 import { 
   AreaChart, 
   Area, 
@@ -34,12 +36,27 @@ interface DashboardPageProps {
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
   const { activeRun, investigations } = useReconciliation();
+  const [activeDiscs, setActiveDiscs] = useState<any[]>(activeRun?.discrepancies || []);
+
+  useEffect(() => {
+    if (activeRun?.discrepancies && activeRun.discrepancies.length > 0) {
+      setActiveDiscs(activeRun.discrepancies);
+    } else if (activeRun?.runId) {
+      apiClient.getDiscrepancies(activeRun.runId).then(discs => {
+        if (Array.isArray(discs) && discs.length > 0) {
+          setActiveDiscs(discs);
+        }
+      }).catch(() => {});
+    } else {
+      setActiveDiscs([]);
+    }
+  }, [activeRun?.runId, activeRun?.discrepancies]);
 
   // Volume & Reconciliation Rate
-  const totalVolume = activeRun?.metrics.totalRecords || 1250;
-  const matchRate = activeRun?.metrics.reconciliationPercentage || 96.4;
-  const discrepanciesCount = activeRun?.metrics.discrepanciesCount || 45;
-  const openInvestigationsCount = investigations.filter(i => i.status === 'OPEN' || i.status === 'UNDER_REVIEW').length;
+  const totalVolume = activeRun?.metrics?.totalRecords ?? 0;
+  const matchRate = activeRun?.metrics?.reconciliationPercentage ?? 0;
+  const discrepanciesCount = activeRun?.metrics?.discrepanciesCount ?? activeDiscs.length;
+  const openInvestigationsCount = (investigations || []).filter(i => i.status === 'OPEN' || i.status === 'UNDER_REVIEW').length;
 
   // Chart Data: 7-Day Velocity
   const velocityData = [
@@ -53,7 +70,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
   ];
 
   // Chart Data: Discrepancy Breakdown dynamically derived from active run
-  const activeDiscs = activeRun?.discrepancies || [];
   const discrepancyBreakdown = activeDiscs.length > 0 ? [
     { name: 'Amount Mismatch', value: activeDiscs.filter(d => d.type === 'AMOUNT_MISMATCH').length, color: '#D95C5C' },
     { name: 'Missing Payment', value: activeDiscs.filter(d => d.type === 'MISSING_PAYMENT').length, color: '#E5A83B' },
@@ -332,7 +348,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {activeRun?.discrepancies.slice(0, 4).map((item) => (
+              {activeDiscs.slice(0, 4).map((item) => (
                 <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
                   <td className="py-3 px-3 font-mono font-bold text-navy-950">
                     {item.investigationId || item.id}
@@ -340,9 +356,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                   <td className="py-3 px-3">
                     <Badge status={item.type} size="sm" />
                   </td>
-                  <td className="py-3 px-3 font-mono text-slate-600">{item.orderId}</td>
+                  <td className="py-3 px-3 font-mono text-slate-600">{item.orderId || 'No Order in OMS'}</td>
                   <td className="py-3 px-3 text-right font-mono font-bold text-crimson-600">
-                    {item.variance}
+                    {formatCurrency(item.variance)}
                   </td>
                   <td className="py-3 px-3 text-slate-600 max-w-xs truncate">
                     {item.explanation}
@@ -358,6 +374,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                   </td>
                 </tr>
               ))}
+              {activeDiscs.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-6 text-center text-slate-400 italic">
+                    No discrepancies recorded for this run.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

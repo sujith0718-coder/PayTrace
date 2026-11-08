@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { AudioProvider } from './context/AudioContext';
 import { ReconciliationProvider } from './context/ReconciliationContext';
 import { AppLayout } from './components/layout/AppLayout';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
@@ -75,9 +76,13 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <AppLayout currentPath={currentPath} onNavigate={navigate}>
-      {renderProtectedPage()}
-    </AppLayout>
+    <ErrorBoundary>
+      <AppLayout currentPath={currentPath} onNavigate={navigate}>
+        <ErrorBoundary>
+          {renderProtectedPage()}
+        </ErrorBoundary>
+      </AppLayout>
+    </ErrorBoundary>
   );
 };
 
