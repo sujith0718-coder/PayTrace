@@ -72,11 +72,11 @@ export const ImportDataPage: React.FC<ImportDataPageProps> = ({ onNavigate }) =>
   const loadSyntheticDemoFiles = () => {
     playCardFlip();
     const ordersCsv = `order_id,order_date,customer_id,order_amount,currency,order_status
-ORD-9821,2026-11-05,CUST-8812,250.00,USD,COMPLETED
-ORD-9844,2026-11-05,CUST-3319,420.00,USD,COMPLETED
-ORD-9850,2026-11-04,CUST-1044,180.00,USD,COMPLETED
-ORD-9877,2026-11-06,CUST-5512,95.00,USD,COMPLETED
-ORD-9890,2026-11-06,CUST-6623,310.00,USD,COMPLETED
+ORD-9821,2026-11-05,CUST-8812,250.00,INR,COMPLETED
+ORD-9844,2026-11-05,CUST-3319,420.00,INR,COMPLETED
+ORD-9850,2026-11-04,CUST-1044,180.00,INR,COMPLETED
+ORD-9877,2026-11-06,CUST-5512,95.00,INR,COMPLETED
+ORD-9890,2026-11-06,CUST-6623,310.00,INR,COMPLETED
 `;
 
     const paymentsCsv = `payment_id,order_id,payment_date,payment_amount,fee_amount,payment_status,payment_method

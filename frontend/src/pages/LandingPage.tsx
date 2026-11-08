@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { 
-  Scale, 
-  ArrowRight, 
-  CheckCircle2, 
-  ShieldCheck, 
-  Coins, 
-  FileCheck2, 
+import {
+  Scale,
+  ArrowRight,
+  CheckCircle2,
+  ShieldCheck,
+  Coins,
+  FileCheck2,
   AlertTriangle,
   Play
 } from 'lucide-react';
@@ -150,7 +150,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
           <div className="lg:col-span-5 flex justify-center relative">
             <div className="relative w-80 sm:w-96 h-[440px]">
               {/* Back Card (Payments) */}
-              <div 
+              <div
                 className="absolute inset-x-0 top-0 h-52 rounded-2xl bg-gradient-to-br from-navy-800 to-navy-900 border border-navy-700/80 shadow-2xl p-5 -rotate-6 transform hover:rotate-0 transition-transform duration-500 cursor-pointer"
                 onClick={playCardFlip}
               >
@@ -205,7 +205,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
               </CardSpotlight>
 
               {/* Floating Golden Coin Badge */}
-              <div 
+              <div
                 onClick={playCoinChime}
                 className="absolute -bottom-4 right-4 w-20 h-20 rounded-full bg-gradient-to-tr from-gold-600 via-gold-400 to-gold-300 border-4 border-navy-950 shadow-2xl flex items-center justify-center text-navy-950 font-black cursor-pointer hover:scale-110 transition-transform duration-200 animate-bounce"
                 title="Click to ring PayTrace Balance Coin"
@@ -228,11 +228,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
           </p>
 
           <div className="pt-6 max-w-3xl mx-auto">
-            <input 
-              type="range" 
-              min="0" 
-              max="100" 
-              value={sliderPos} 
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={sliderPos}
               onChange={(e) => setSliderPos(Number(e.target.value))}
               className="w-full h-2 bg-navy-700 rounded-lg appearance-none cursor-pointer accent-gold-500"
             />
@@ -336,7 +336,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
       {/* Footer */}
       <footer className="border-t border-navy-800/80 py-8 px-6 text-center text-xs text-slate-500 font-mono">
         <p>PayTrace — Payment Discrepancy Detection & Reconciliation System</p>
-        <p className="mt-1 text-slate-600">Built by Thurika G, Sujith E, Tharun J, Mithunasri J • Academic Project</p>
+        <p className="mt-1 text-white">Built with 🩷 by Thurika G, Sujith E, Tharun J, Mithunasri J • Academic Project</p>
       </footer>
     </div>
   );

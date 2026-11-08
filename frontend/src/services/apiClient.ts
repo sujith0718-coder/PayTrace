@@ -27,6 +27,11 @@ export const isMockModeActive = (): boolean => {
   return import.meta.env.VITE_USE_MOCKS === 'true';
 };
 
+export const setMockMode = (enable: boolean): void => {
+  localStorage.setItem(FORCE_MOCKS_KEY, String(enable));
+  window.location.reload();
+};
+
 export const toggleMockMode = (): boolean => {
   const current = isMockModeActive();
   localStorage.setItem(FORCE_MOCKS_KEY, String(!current));
@@ -832,6 +837,14 @@ class ApiClient {
 
     await new Promise(r => setTimeout(r, 200));
     return MOCK_AUDIT_LOGS;
+  }
+
+  public setMockMode(enable: boolean): void {
+    setMockMode(enable);
+  }
+
+  public toggleMockMode(): boolean {
+    return toggleMockMode();
   }
 }
 

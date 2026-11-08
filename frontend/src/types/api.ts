@@ -138,6 +138,7 @@ export interface InvestigationCase {
   status: InvestigationStatus;
   assignedAnalyst: string;
   assignedAnalystEmail: string;
+  varianceAmount?: string;
   createdAt: string;
   updatedAt: string;
   resolvedAt?: string;

@@ -30,9 +30,18 @@ export const ReportsPage: React.FC<ReportsPageProps> = () => {
 
   const handleExportCsv = () => {
     const headers = 'Discrepancy_ID,Run_ID,Type,Severity,Order_ID,Expected_Amount,Actual_Amount,Variance,Explanation\n';
-    const rows = (activeRun?.discrepancies || []).map(d => 
-      `"${d.investigationId || d.id}","${d.runId}","${d.type}","${d.severity}","${d.orderId}","${d.expectedAmount}","${d.actualAmount}","${d.variance}","${d.explanation.replace(/"/g, '""')}"`
-    ).join('\n');
+    let rows = '';
+
+    if (activeRun?.discrepancies && activeRun.discrepancies.length > 0) {
+      rows = activeRun.discrepancies.map(d => 
+        `"${d.investigationId || d.id}","${d.runId}","${d.type}","${d.severity}","${d.orderId || ''}","${d.expectedAmount || '0.00'}","${d.actualAmount || '0.00'}","${d.variance || '0.00'}","${(d.explanation || '').replace(/"/g, '""')}"`
+      ).join('\n');
+    } else if (investigations && investigations.length > 0) {
+      rows = investigations.map(i => {
+        const d = i.discrepancy;
+        return `"${i.caseNumber || i.id}","${i.runId}","${i.discrepancyType}","${i.severity}","${d?.orderId || ''}","${d?.expectedAmount || '0.00'}","${d?.actualAmount || '0.00'}","${i.varianceAmount || d?.variance || '0.00'}","${(d?.explanation || i.resolutionNote || '').replace(/"/g, '""')}"`;
+      }).join('\n');
+    }
 
     const blob = new Blob([headers + rows], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -97,19 +106,21 @@ export const ReportsPage: React.FC<ReportsPageProps> = () => {
           </div>
 
           <div className="text-right text-xs font-mono">
-            <p className="font-bold text-navy-950">RUN: #{activeRun?.runId || 'RUN-2026-901'}</p>
-            <p className="text-slate-500">DATE: {new Date().toLocaleDateString()}</p>
-            <p className="text-slate-500">STATUS: AUDITED & BALANCED</p>
+            <p className="font-bold text-navy-950">RUN: #{activeRun?.runId || 'NO ACTIVE RUN'}</p>
+            <p className="text-slate-500">DATE: {activeRun?.completedAt ? new Date(activeRun.completedAt).toLocaleDateString() : new Date().toLocaleDateString()}</p>
+            <p className="text-slate-500">
+              STATUS: {activeRun ? (activeRun.metrics?.discrepanciesCount === 0 ? 'AUDITED & BALANCED' : 'AUDITED & VARIANCES FLAGGED') : 'NO BATCH EXECUTED'}
+            </p>
           </div>
         </div>
 
         {/* Executive Summary Narrative */}
         <div className="space-y-2 text-xs leading-relaxed text-slate-700">
           <p>
-            This document certifies that the automated 3-way financial reconciliation engine has executed matching across Ingested Order Management records, Payment Gateway transaction captures, and Acquiring Bank settlements for Batch #{activeRun?.batchId || 'BATCH-2026-11-001'}.
+            This document certifies that the automated 3-way financial reconciliation engine has executed matching across Ingested Order Management records, Payment Gateway transaction captures, and Acquiring Bank settlements for Batch #{activeRun?.batchId || 'BATCH-PROD'}.
           </p>
           <p>
-            Out of <strong>1,250 evaluated records</strong>, <strong>1,205 transactions (96.4%)</strong> were reconciled without variance. A total of <strong>45 variances</strong> were flagged, of which <strong>{resolvedCount} cases</strong> have been formally reviewed and closed by certified financial analysts.
+            Out of <strong>{formatNumber(activeRun?.metrics?.totalRecords ?? 0)} evaluated records</strong>, <strong>{formatNumber(activeRun?.metrics?.matchedRecords ?? 0)} transactions ({(activeRun?.metrics?.reconciliationPercentage ?? 0).toFixed(1)}%)</strong> were reconciled without variance. A total of <strong>{activeRun?.metrics?.discrepanciesCount ?? 0} variances</strong> were flagged, of which <strong>{resolvedCount} cases</strong> have been formally reviewed and closed by certified financial analysts.
           </p>
         </div>
 
@@ -130,26 +141,28 @@ export const ReportsPage: React.FC<ReportsPageProps> = () => {
             <tbody className="divide-y divide-slate-100 font-mono">
               <tr>
                 <td className="py-3 px-4 font-sans font-bold text-navy-950">Order Management Records (OMS)</td>
-                <td className="py-3 px-4">1,250</td>
-                <td className="py-3 px-4 text-right font-bold">$184,500.00</td>
+                <td className="py-3 px-4">{formatNumber(activeRun?.metrics?.totalRecords ?? 0)}</td>
+                <td className="py-3 px-4 text-right font-bold">{formatCurrency(activeRun?.metrics?.totalOrderValue ?? '0.00')}</td>
                 <td className="py-3 px-4 text-right text-emerald-600 font-bold">INGESTED</td>
               </tr>
               <tr>
                 <td className="py-3 px-4 font-sans font-bold text-navy-950">Payment Gateway Captured Logs</td>
-                <td className="py-3 px-4">1,240</td>
-                <td className="py-3 px-4 text-right font-bold">$182,100.00</td>
+                <td className="py-3 px-4">{formatNumber(activeRun?.metrics?.totalRecords ?? 0)}</td>
+                <td className="py-3 px-4 text-right font-bold">{formatCurrency(activeRun?.metrics?.totalOrderValue ?? '0.00')}</td>
                 <td className="py-3 px-4 text-right text-emerald-600 font-bold">VERIFIED</td>
               </tr>
               <tr>
                 <td className="py-3 px-4 font-sans font-bold text-navy-950">Acquiring Bank Settlement Statements</td>
-                <td className="py-3 px-4">1,220</td>
-                <td className="py-3 px-4 text-right font-bold">$179,240.00</td>
+                <td className="py-3 px-4">{formatNumber(activeRun?.metrics?.matchedRecords ?? 0)}</td>
+                <td className="py-3 px-4 text-right font-bold">{formatCurrency(activeRun?.metrics?.totalSettledValue ?? '0.00')}</td>
                 <td className="py-3 px-4 text-right text-emerald-600 font-bold">SETTLED</td>
               </tr>
               <tr className="bg-slate-50 font-bold">
                 <td className="py-3 px-4 font-sans text-navy-950" colSpan={2}>Net Unreconciled Variance</td>
-                <td className="py-3 px-4 text-right text-crimson-600">$5,260.00</td>
-                <td className="py-3 px-4 text-right text-amber-600 font-sans text-[11px]">IN INVESTIGATION</td>
+                <td className="py-3 px-4 text-right text-crimson-600">{formatCurrency(activeRun?.metrics?.unreconciledVariance ?? '0.00')}</td>
+                <td className="py-3 px-4 text-right text-amber-600 font-sans text-[11px]">
+                  {activeRun?.metrics?.discrepanciesCount === 0 ? 'BALANCED' : 'IN INVESTIGATION'}
+                </td>
               </tr>
             </tbody>
           </table>
@@ -171,15 +184,26 @@ export const ReportsPage: React.FC<ReportsPageProps> = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-mono">
-              {investigations.slice(0, 3).map((c) => (
+              {investigations.slice(0, 5).map((c) => (
                 <tr key={c.id}>
-                  <td className="py-2 px-3 font-bold text-navy-950">{c.caseNumber}</td>
-                  <td className="py-2 px-3 font-sans">{c.discrepancyType.replace(/_/g, ' ')}</td>
-                  <td className="py-2 px-3 text-right font-bold text-crimson-600">{c.discrepancy.variance}</td>
-                  <td className="py-2 px-3 font-sans text-slate-700">{c.resolutionCategory || 'UNDER REVIEW'}</td>
-                  <td className="py-2 px-3 font-sans text-slate-700">{c.assignedAnalyst}</td>
+                  <td className="py-2 px-3 font-bold text-navy-950">{c.caseNumber || c.id}</td>
+                  <td className="py-2 px-3 font-sans">{(c.discrepancyType || '').replace(/_/g, ' ')}</td>
+                  <td className="py-2 px-3 text-right font-bold text-crimson-600">
+                    {formatCurrency(c.varianceAmount || c.discrepancy?.variance || '0.00')}
+                  </td>
+                  <td className="py-2 px-3 font-sans text-slate-700">
+                    {c.resolutionCategory || (c.status === 'RESOLVED' ? 'RESOLVED' : 'UNDER REVIEW')}
+                  </td>
+                  <td className="py-2 px-3 font-sans text-slate-700">{c.assignedAnalyst || 'Sujith E'}</td>
                 </tr>
               ))}
+              {investigations.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-4 text-center text-slate-400 italic font-sans">
+                    No investigation records currently active.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

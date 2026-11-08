@@ -76,10 +76,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
     { name: 'Missing Settlement', value: activeDiscs.filter(d => d.type === 'MISSING_SETTLEMENT').length, color: '#8B70E8' },
     { name: 'Duplicate Record', value: activeDiscs.filter(d => d.type === 'DUPLICATE_TRANSACTION').length, color: '#D6B66C' },
   ] : [
-    { name: 'Amount Mismatch', value: 18, color: '#D95C5C' },
-    { name: 'Missing Payment', value: 14, color: '#E5A83B' },
-    { name: 'Missing Settlement', value: 8, color: '#8B70E8' },
-    { name: 'Duplicate Record', value: 5, color: '#D6B66C' },
+    { name: 'Amount Mismatch', value: 0, color: '#D95C5C' },
+    { name: 'Missing Payment', value: 0, color: '#E5A83B' },
+    { name: 'Missing Settlement', value: 0, color: '#8B70E8' },
+    { name: 'Duplicate Record', value: 0, color: '#D6B66C' },
   ];
 
   return (
@@ -91,7 +91,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
             Financial Reconciliation Overview
           </h1>
           <p className="text-xs text-slate-500 font-medium mt-1">
-            Reconciliation Run #{activeRun?.runId || 'RUN-2026-901'} • Monitored Automated Batch
+            Reconciliation Run #{activeRun?.runId || 'NO ACTIVE RUN'} • Monitored Automated Batch
           </p>
         </div>
 
@@ -213,7 +213,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
             <h2 className="text-base font-bold text-navy-950 font-sans">
               Discrepancy Archetypes
             </h2>
-            <p className="text-xs text-slate-500">Distribution across 45 flagged records</p>
+            <p className="text-xs text-slate-500">Distribution across {discrepanciesCount} flagged records</p>
           </div>
 
           <div className="h-52 w-full flex items-center justify-center">

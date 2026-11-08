@@ -1,13 +1,22 @@
-import React from 'react';
-import { Volume2, VolumeX, ShieldCheck, Server, Database, Sparkles, CheckCircle2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Volume2, VolumeX, ShieldCheck, Server, Database, Sparkles, CheckCircle2, CloudOff, RefreshCw } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useAudio } from '../context/AudioContext';
 import { useAuth } from '../context/AuthContext';
+import { apiClient, isMockModeActive } from '../services/apiClient';
 
 export const SettingsPage: React.FC = () => {
   const { isMuted, volume, toggleMute, setVolume, playCoinChime, playSuccess, playStamp } = useAudio();
   const { user } = useAuth();
+  const [isMock, setIsMock] = useState<boolean>(isMockModeActive());
+
+  const handleToggleMode = () => {
+    const nextMode = !isMock;
+    apiClient.setMockMode(nextMode);
+    setIsMock(nextMode);
+    window.location.reload();
+  };
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
@@ -109,46 +118,62 @@ export const SettingsPage: React.FC = () => {
 
       {/* Backend & Environment Telemetry */}
       <Card variant="white" className="p-6 space-y-6">
-        <div>
-          <h2 className="text-base font-bold text-navy-950 font-sans">
-            Architecture & Integration Status
-          </h2>
-          <p className="text-xs text-slate-500">
-            Real-time status of the decoupled backend layers and algorithms.
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-base font-bold text-navy-950 font-sans">
+              Architecture & Integration Status
+            </h2>
+            <p className="text-xs text-slate-500">
+              Real-time status of the decoupled backend layers, database, and matching algorithm.
+            </p>
+          </div>
+
+          <Button
+            variant={isMock ? 'primary-gold' : 'secondary-navy'}
+            size="sm"
+            onClick={handleToggleMode}
+          >
+            {isMock ? 'Switch to Live Mode (TiDB & Render)' : 'Switch to Demo Mode'}
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono text-xs">
           <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-2">
             <div className="flex items-center gap-2 text-navy-950 font-bold">
               <Server className="w-4 h-4 text-gold-500" />
-              <span>SPRING BOOT 3.x</span>
+              <span>{!isMock ? 'RENDER CLOUD' : 'LOCAL ENGINE'}</span>
             </div>
-            <p className="text-slate-500 text-[11px] font-sans">Java 21 LTS Execution Engine</p>
+            <p className="text-slate-500 text-[11px] font-sans">
+              {!isMock ? 'Spring Boot 3.x • Java 21 LTS' : 'Browser Synthetic Runtime'}
+            </p>
             <div className="flex items-center gap-1.5 text-emerald-600 font-bold text-[11px]">
-              <CheckCircle2 className="w-3.5 h-3.5" /> READY
+              <CheckCircle2 className="w-3.5 h-3.5" /> {!isMock ? 'ONLINE' : 'ACTIVE'}
             </div>
           </div>
 
           <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-2">
             <div className="flex items-center gap-2 text-navy-950 font-bold">
               <Database className="w-4 h-4 text-emerald-600" />
-              <span>MYSQL 8.x DB</span>
+              <span>{!isMock ? 'TIDB CLOUD' : 'MEMORY STORE'}</span>
             </div>
-            <p className="text-slate-500 text-[11px] font-sans">InnoDB • Decimal(15,2)</p>
+            <p className="text-slate-500 text-[11px] font-sans">
+              {!isMock ? 'Distributed MySQL • paytrace_db' : 'Client In-Memory Fixtures'}
+            </p>
             <div className="flex items-center gap-1.5 text-emerald-600 font-bold text-[11px]">
-              <CheckCircle2 className="w-3.5 h-3.5" /> CONNECTED
+              <CheckCircle2 className="w-3.5 h-3.5" /> {!isMock ? 'CONNECTED' : 'SIMULATED'}
             </div>
           </div>
 
           <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-2">
             <div className="flex items-center gap-2 text-navy-950 font-bold">
               <Sparkles className="w-4 h-4 text-lavender-500" />
-              <span>MOCK ENGINE</span>
+              <span>{!isMock ? 'LIVE RECONCILER' : 'MOCK ENGINE'}</span>
             </div>
-            <p className="text-slate-500 text-[11px] font-sans">Stateful Synthetic Fixtures</p>
-            <div className="flex items-center gap-1.5 text-gold-600 font-bold text-[11px]">
-              <CheckCircle2 className="w-3.5 h-3.5" /> ACTIVE (DEMO MODE)
+            <p className="text-slate-500 text-[11px] font-sans">
+              {!isMock ? '3-Way Transaction Auditing' : 'Static Fixtures'}
+            </p>
+            <div className={`flex items-center gap-1.5 font-bold text-[11px] ${!isMock ? 'text-emerald-600' : 'text-gold-600'}`}>
+              <CheckCircle2 className="w-3.5 h-3.5" /> {!isMock ? 'ACTIVE (LIVE CLOUD)' : 'ACTIVE (DEMO MODE)'}
             </div>
           </div>
         </div>

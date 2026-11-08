@@ -519,8 +519,11 @@ public class ReconciliationController {
                     metrics.put("matchedRecords", rs.getInt("matched_records"));
                     metrics.put("discrepanciesCount", rs.getInt("discrepancies_count"));
                     metrics.put("reconciliationPercentage", rs.getDouble("match_percentage"));
-                    metrics.put("totalOrderValue", rs.getBigDecimal("total_order_value") != null ? rs.getBigDecimal("total_order_value").toPlainString() : "0.00");
-                    metrics.put("totalSettledValue", rs.getBigDecimal("total_settled_value") != null ? rs.getBigDecimal("total_settled_value").toPlainString() : "0.00");
+                    BigDecimal orderVal = rs.getBigDecimal("total_order_value") != null ? rs.getBigDecimal("total_order_value") : BigDecimal.ZERO;
+                    BigDecimal settledVal = rs.getBigDecimal("total_settled_value") != null ? rs.getBigDecimal("total_settled_value") : BigDecimal.ZERO;
+                    metrics.put("totalOrderValue", orderVal.toPlainString());
+                    metrics.put("totalSettledValue", settledVal.toPlainString());
+                    metrics.put("unreconciledVariance", orderVal.subtract(settledVal).abs().toPlainString());
                     r.put("metrics", metrics);
                     list.add(r);
                 }
@@ -594,11 +597,17 @@ public class ReconciliationController {
                          updated_at = CURRENT_TIMESTAMP
                      WHERE id = ? OR case_number = ?
                  """)) {
-                ps.setString(1, body.containsKey("status") ? body.get("status").toString() : null);
-                ps.setString(2, body.containsKey("resolutionCategory") ? body.get("resolutionCategory").toString() : null);
-                ps.setString(3, body.containsKey("resolutionReason") || body.containsKey("note") 
-                        ? (body.containsKey("resolutionReason") ? body.get("resolutionReason").toString() : body.get("note").toString())
-                        : null);
+                ps.setString(1, body.containsKey("status") && body.get("status") != null ? body.get("status").toString() : null);
+                ps.setString(2, body.containsKey("resolutionCategory") && body.get("resolutionCategory") != null ? body.get("resolutionCategory").toString() : null);
+                String resNote = null;
+                if (body.containsKey("resolutionReason") && body.get("resolutionReason") != null) {
+                    resNote = body.get("resolutionReason").toString();
+                } else if (body.containsKey("resolutionNote") && body.get("resolutionNote") != null) {
+                    resNote = body.get("resolutionNote").toString();
+                } else if (body.containsKey("note") && body.get("note") != null) {
+                    resNote = body.get("note").toString();
+                }
+                ps.setString(3, resNote);
                 ps.setString(4, caseId);
                 ps.setString(5, caseId);
                 ps.executeUpdate();
@@ -637,17 +646,28 @@ public class ReconciliationController {
 
         // Persist note to TiDB
         if (dataSource != null) {
-            try (Connection conn = dataSource.getConnection();
-                 PreparedStatement ps = conn.prepareStatement("""
-                     INSERT INTO investigation_notes (id, investigation_id, author, author_role, text)
-                     VALUES (?, ?, ?, ?, ?)
-                 """)) {
-                ps.setString(1, noteId);
-                ps.setString(2, caseId);
-                ps.setString(3, author);
-                ps.setString(4, authorRole);
-                ps.setString(5, text);
-                ps.executeUpdate();
+            String resolvedId = caseId;
+            try (Connection conn = dataSource.getConnection()) {
+                try (PreparedStatement psLookup = conn.prepareStatement("SELECT id FROM investigations WHERE id = ? OR case_number = ? LIMIT 1")) {
+                    psLookup.setString(1, caseId);
+                    psLookup.setString(2, caseId);
+                    try (ResultSet rs = psLookup.executeQuery()) {
+                        if (rs.next()) {
+                            resolvedId = rs.getString(1);
+                        }
+                    }
+                }
+                try (PreparedStatement ps = conn.prepareStatement("""
+                    INSERT INTO investigation_notes (id, investigation_id, author, author_role, text)
+                    VALUES (?, ?, ?, ?, ?)
+                """)) {
+                    ps.setString(1, noteId);
+                    ps.setString(2, resolvedId);
+                    ps.setString(3, author);
+                    ps.setString(4, authorRole);
+                    ps.setString(5, text);
+                    ps.executeUpdate();
+                }
             } catch (Exception e) {
                 System.err.println("Could not persist note to TiDB: " + e.getMessage());
             }
@@ -872,8 +892,11 @@ public class ReconciliationController {
                     metrics.put("matchedRecords", rs.getInt("matched_records"));
                     metrics.put("discrepanciesCount", rs.getInt("discrepancies_count"));
                     metrics.put("reconciliationPercentage", rs.getDouble("match_percentage"));
-                    metrics.put("totalOrderValue", rs.getBigDecimal("total_order_value") != null ? rs.getBigDecimal("total_order_value").toPlainString() : "0.00");
-                    metrics.put("totalSettledValue", rs.getBigDecimal("total_settled_value") != null ? rs.getBigDecimal("total_settled_value").toPlainString() : "0.00");
+                    BigDecimal orderVal = rs.getBigDecimal("total_order_value") != null ? rs.getBigDecimal("total_order_value") : BigDecimal.ZERO;
+                    BigDecimal settledVal = rs.getBigDecimal("total_settled_value") != null ? rs.getBigDecimal("total_settled_value") : BigDecimal.ZERO;
+                    metrics.put("totalOrderValue", orderVal.toPlainString());
+                    metrics.put("totalSettledValue", settledVal.toPlainString());
+                    metrics.put("unreconciledVariance", orderVal.subtract(settledVal).abs().toPlainString());
                     r.put("metrics", metrics);
 
                     List<Map<String, Object>> discrepancies = loadDiscrepanciesFromDb(runId);
@@ -1073,8 +1096,10 @@ public class ReconciliationController {
 
                     // Load notes
                     List<Map<String, Object>> notes = new ArrayList<>();
-                    try (PreparedStatement nps = conn.prepareStatement("SELECT * FROM investigation_notes WHERE investigation_id = ? ORDER BY created_at ASC")) {
+                    String caseNum = inv.get("caseNumber") != null ? inv.get("caseNumber").toString() : id;
+                    try (PreparedStatement nps = conn.prepareStatement("SELECT * FROM investigation_notes WHERE investigation_id = ? OR investigation_id = ? ORDER BY created_at ASC")) {
                         nps.setString(1, id);
+                        nps.setString(2, caseNum);
                         try (ResultSet nrs = nps.executeQuery()) {
                             while (nrs.next()) {
                                 Map<String, Object> note = new HashMap<>();

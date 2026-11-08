@@ -13,6 +13,7 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { useReconciliation } from '../context/ReconciliationContext';
 import { useAudio } from '../context/AudioContext';
+import { isMockModeActive } from '../services/apiClient';
 
 interface ReconcileWorkspacePageProps {
   onNavigate: (path: string) => void;
@@ -130,7 +131,7 @@ export const ReconcileWorkspacePage: React.FC<ReconcileWorkspacePageProps> = ({ 
             <div className="p-3 rounded-lg bg-navy-900 border border-navy-700/80 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-2.5 h-2.5 rounded-full bg-gold-400" />
-                <span className="text-xs font-semibold text-ivory-100">Orders Stream ({activeBatch?.ordersCount ?? 1250})</span>
+                <span className="text-xs font-semibold text-ivory-100">Orders Stream ({activeBatch?.ordersCount ?? (isMockModeActive() ? 1250 : 0)})</span>
               </div>
               <span className="text-[10px] font-mono text-slate-400">OMS</span>
             </div>
@@ -138,7 +139,7 @@ export const ReconcileWorkspacePage: React.FC<ReconcileWorkspacePageProps> = ({ 
             <div className="p-3 rounded-lg bg-navy-900 border border-navy-700/80 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-2.5 h-2.5 rounded-full bg-lavender-400" />
-                <span className="text-xs font-semibold text-ivory-100">Payments Stream ({activeBatch?.paymentsCount ?? 1240})</span>
+                <span className="text-xs font-semibold text-ivory-100">Payments Stream ({activeBatch?.paymentsCount ?? (isMockModeActive() ? 1240 : 0)})</span>
               </div>
               <span className="text-[10px] font-mono text-slate-400">GATEWAY</span>
             </div>
@@ -146,7 +147,7 @@ export const ReconcileWorkspacePage: React.FC<ReconcileWorkspacePageProps> = ({ 
             <div className="p-3 rounded-lg bg-navy-900 border border-navy-700/80 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-                <span className="text-xs font-semibold text-ivory-100">Settlements Stream ({activeBatch?.settlementsCount ?? 1220})</span>
+                <span className="text-xs font-semibold text-ivory-100">Settlements Stream ({activeBatch?.settlementsCount ?? (isMockModeActive() ? 1220 : 0)})</span>
               </div>
               <span className="text-[10px] font-mono text-slate-400">BANK</span>
             </div>
@@ -172,7 +173,7 @@ export const ReconcileWorkspacePage: React.FC<ReconcileWorkspacePageProps> = ({ 
                 <span className="text-xs font-semibold text-emerald-300">Balanced Ledger</span>
               </div>
               <span className="text-xs font-mono font-bold text-emerald-400">
-                {activeRun?.metrics.matchedRecords ?? 1205} ({(activeRun?.metrics.reconciliationPercentage ?? 96.4).toFixed(1)}%)
+                {activeRun?.metrics.matchedRecords ?? (isMockModeActive() ? 1205 : 0)} ({(activeRun?.metrics.reconciliationPercentage ?? (isMockModeActive() ? 96.4 : 0)).toFixed(1)}%)
               </span>
             </div>
 
@@ -182,7 +183,7 @@ export const ReconcileWorkspacePage: React.FC<ReconcileWorkspacePageProps> = ({ 
                 <span className="text-xs font-semibold text-crimson-300">Flagged Discrepancies</span>
               </div>
               <span className="text-xs font-mono font-bold text-crimson-400">
-                {activeRun?.metrics.discrepanciesCount ?? 45} ({(100 - (activeRun?.metrics.reconciliationPercentage ?? 96.4)).toFixed(1)}%)
+                {activeRun?.metrics.discrepanciesCount ?? (isMockModeActive() ? 45 : 0)} ({(activeRun ? 100 - activeRun.metrics.reconciliationPercentage : (isMockModeActive() ? 3.6 : 0)).toFixed(1)}%)
               </span>
             </div>
           </div>
