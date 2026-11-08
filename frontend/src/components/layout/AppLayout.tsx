@@ -33,10 +33,15 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         />
 
         {/* Scrollable Page Body */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-8">
-          <div className="max-w-7xl mx-auto">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-8 flex flex-col justify-between">
+          <div className="max-w-7xl mx-auto w-full">
             {children}
           </div>
+          
+          <footer className="mt-12 pt-6 pb-2 border-t border-slate-200/80 text-center text-xs text-slate-500 font-mono">
+            <p>PayTrace — Payment Discrepancy Detection & Reconciliation System</p>
+            <p className="mt-1 text-slate-700 font-medium">Built with 🩷 by Thurika G, Sujith E, Tharun J, Mithunasri J • Academic Project</p>
+          </footer>
         </main>
       </div>
     </div>

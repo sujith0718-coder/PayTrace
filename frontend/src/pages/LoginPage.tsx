@@ -210,6 +210,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
         <p className="text-center text-[11px] text-slate-400 font-mono max-w-sm mx-auto">
           ⚠️ Demonstration Environment. Never enter real banking credentials, PINs, or actual credit card numbers.
         </p>
+
+        {/* Footer */}
+        <footer className="pt-4 text-center text-xs text-slate-500 font-mono border-t border-navy-800/60">
+          <p>PayTrace — Payment Discrepancy Detection & Reconciliation System</p>
+          <p className="mt-1 text-slate-300 font-medium">Built with 🩷 by Thurika G, Sujith E, Tharun J, Mithunasri J • Academic Project</p>
+        </footer>
       </div>
     </div>
   );

@@ -334,9 +334,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-navy-800/80 py-8 px-6 text-center text-xs text-slate-500 font-mono">
-        <p>PayTrace — Payment Discrepancy Detection & Reconciliation System</p>
-        <p className="mt-1 text-white">Built with 🩷 by Thurika G, Sujith E, Tharun J, Mithunasri J • Academic Project</p>
+      <footer className="border-t border-navy-800/80 py-8 px-6 text-center text-xs text-slate-400 font-mono">
+        <p className="text-slate-300 font-semibold">PayTrace — Payment Discrepancy Detection & Reconciliation System</p>
+        <p className="mt-1.5 text-white font-medium">Built with 🩷 by Thurika G, Sujith E, Tharun J, Mithunasri J • Academic Project</p>
       </footer>
     </div>
   );
